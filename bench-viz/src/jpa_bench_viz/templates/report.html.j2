@@ -109,7 +109,7 @@
 {% else %}
 {% for t in s.score_tables %}
 <h3>{{ t.title }}: factor to the fastest <span class="note">({{ t.unit }}, {{ t.better }})</span></h3>
-<p class="legend">1.00 = fastest (bold frame); ≈ and thin frame: score ± error overlaps the fastest; darker = faster.</p>
+<p class="legend">1.00 = fastest (bold frame); ≈ and thin frame: score ± error overlaps the fastest; colour steps at 0.95, 0.8, 0.6, 0.4 and 0.2.</p>
 <div class="scroll card">
 <table class="heat">
   <thead><tr><th>Benchmark</th>{% for r in t.runners %}<th class="runner"><span class="swatch {{ classes[r] }}" aria-hidden="true"></span>{{ labels[r] }}</th>{% endfor %}</tr></thead>
