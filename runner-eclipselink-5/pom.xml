@@ -30,9 +30,7 @@
     <description>Benchmark runner for EclipseLink 5 (Jakarta Persistence 3.2).</description>
 
     <properties>
-        <!-- 5.0.3 is not released yet (Maven Central only has 5.0.3-RC1): latest final 5.0.x -->
-        <eclipselink.version>5.0.2</eclipselink.version>
-        <exec-maven-plugin.version>3.5.1</exec-maven-plugin.version>
+        <eclipselink.version>${eclipselink5.version}</eclipselink.version>
         <!-- written into bench-provider.properties; the "weave" profile switches both -->
         <bench.enhancement>none</bench.enhancement>
         <bench.weaving>false</bench.weaving>
@@ -73,6 +71,16 @@
             </resource>
         </resources>
         <plugins>
+            <!-- the static weaving executions are configured in the parent and bound to ${bench.weave.phase},
+                 which is "none" unless the weave profile is active -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -86,90 +94,17 @@
           unpacked, woven with EclipseLink's StaticWeave tool into target/classes (lazy loading of to-one
           associations, change tracking, fetch groups, internal optimizations), the unwoven bench-model jar is
           left out of benchmarks.jar and eclipselink.weaving=static is set. Off by default: EclipseLink runs
-          without weaving, like Hibernate without bytecode enhancement.
+          without weaving, like Hibernate without bytecode enhancement. The same build is always available as
+          the separate runner runner-eclipselink-5-woven, so both variants can be compared in one run.
         -->
         <profile>
             <id>weave</id>
             <properties>
                 <bench.enhancement>static weaving (build time)</bench.enhancement>
                 <bench.weaving>static</bench.weaving>
+                <bench.weave.phase>process-classes</bench.weave.phase>
+                <bench.shade.excludeModel>${project.groupId}:bench-model</bench.shade.excludeModel>
             </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-dependency-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>unpack-model</id>
-                                <phase>process-classes</phase>
-                                <goals>
-                                    <goal>unpack-dependencies</goal>
-                                </goals>
-                                <configuration>
-                                    <includeArtifactIds>bench-model</includeArtifactIds>
-                                    <outputDirectory>${project.build.directory}/unwoven</outputDirectory>
-                                    <excludes>META-INF/**</excludes>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>unpack-persistence-xml</id>
-                                <phase>process-classes</phase>
-                                <goals>
-                                    <goal>unpack-dependencies</goal>
-                                </goals>
-                                <configuration>
-                                    <includeArtifactIds>bench-core</includeArtifactIds>
-                                    <outputDirectory>${project.build.directory}/persistence-info</outputDirectory>
-                                    <includes>META-INF/persistence.xml</includes>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>${exec-maven-plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <id>weave-model</id>
-                                <phase>process-classes</phase>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
-                                <configuration>
-                                    <mainClass>org.eclipse.persistence.tools.weaving.jpa.StaticWeave</mainClass>
-                                    <classpathScope>compile</classpathScope>
-                                    <arguments>
-                                        <argument>-persistenceinfo</argument>
-                                        <argument>${project.build.directory}/persistence-info</argument>
-                                        <argument>-loglevel</argument>
-                                        <argument>WARNING</argument>
-                                        <argument>${project.build.directory}/unwoven</argument>
-                                        <argument>${project.build.outputDirectory}</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-shade-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>benchmarks-jar</id>
-                                <configuration>
-                                    <artifactSet>
-                                        <excludes>
-                                            <exclude>${project.groupId}:bench-model</exclude>
-                                        </excludes>
-                                    </artifactSet>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
     </profiles>
 </project>

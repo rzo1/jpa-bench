@@ -29,6 +29,11 @@
     <name>jpa-bench :: model</name>
     <description>The benchmark entity model. Uses jakarta.persistence annotations only.</description>
 
+    <properties>
+        <!-- the model classes are this module's own classes, not a stale copy -->
+        <bench.removeStaleModel.skip>true</bench.removeStaleModel.skip>
+    </properties>
+
     <dependencies>
         <!-- provided: every runner brings the API version of its provider -->
         <dependency>
