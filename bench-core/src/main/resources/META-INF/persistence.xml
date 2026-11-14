@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright the jpa-bench authors.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<!--
+  The single persistence unit of the benchmark. It deliberately names no provider and no settings:
+  the provider is selected with jakarta.persistence.provider and every setting is passed as a property map
+  built by BenchEnvironment from bench-common.properties and the runner's bench-provider.properties.
+-->
+<persistence xmlns="https://jakarta.ee/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence https://jakarta.ee/xml/ns/persistence/persistence_3_0.xsd"
+             version="3.0">
+    <persistence-unit name="jpa-bench" transaction-type="RESOURCE_LOCAL">
+        <class>io.github.rzo1.jpabench.model.Category</class>
+        <class>io.github.rzo1.jpabench.model.Product</class>
+        <class>io.github.rzo1.jpabench.model.Customer</class>
+        <class>io.github.rzo1.jpabench.model.Address</class>
+        <class>io.github.rzo1.jpabench.model.PurchaseOrder</class>
+        <class>io.github.rzo1.jpabench.model.OrderLine</class>
+        <class>io.github.rzo1.jpabench.model.StPerson</class>
+        <class>io.github.rzo1.jpabench.model.StEmployee</class>
+        <class>io.github.rzo1.jpabench.model.StContractor</class>
+        <class>io.github.rzo1.jpabench.model.JnPerson</class>
+        <class>io.github.rzo1.jpabench.model.JnEmployee</class>
+        <class>io.github.rzo1.jpabench.model.JnContractor</class>
+        <exclude-unlisted-classes>true</exclude-unlisted-classes>
+        <shared-cache-mode>NONE</shared-cache-mode>
+        <validation-mode>NONE</validation-mode>
+    </persistence-unit>
+</persistence>
