@@ -27,5 +27,149 @@
 
     <artifactId>runner-eclipselink-5</artifactId>
     <name>jpa-bench :: runner-eclipselink-5</name>
-    <description>Benchmark runner for EclipseLink 5.0.3 (stub, not implemented yet; see runner-hibernate-7 for the reference).</description>
+    <description>Benchmark runner for EclipseLink 5 (Jakarta Persistence 3.2).</description>
+
+    <properties>
+        <!-- 5.0.3 is not released yet (Maven Central only has 5.0.3-RC1): latest final 5.0.x -->
+        <eclipselink.version>5.0.2</eclipselink.version>
+        <exec-maven-plugin.version>3.5.1</exec-maven-plugin.version>
+        <!-- written into bench-provider.properties; the "weave" profile switches both -->
+        <bench.enhancement>none</bench.enhancement>
+        <bench.weaving>false</bench.weaving>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-model</artifactId>
+        </dependency>
+        <!-- exactly one provider; it brings its own jakarta.persistence-api (3.2) -->
+        <dependency>
+            <groupId>org.eclipse.persistence</groupId>
+            <artifactId>org.eclipse.persistence.jpa</artifactId>
+            <version>${eclipselink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!--
+          Optional static weaving (mvn -Pweave package): the model classes and bench-core's persistence.xml are
+          unpacked, woven with EclipseLink's StaticWeave tool into target/classes (lazy loading of to-one
+          associations, change tracking, fetch groups, internal optimizations), the unwoven bench-model jar is
+          left out of benchmarks.jar and eclipselink.weaving=static is set. Off by default: EclipseLink runs
+          without weaving, like Hibernate without bytecode enhancement.
+        -->
+        <profile>
+            <id>weave</id>
+            <properties>
+                <bench.enhancement>static weaving (build time)</bench.enhancement>
+                <bench.weaving>static</bench.weaving>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>unpack-model</id>
+                                <phase>process-classes</phase>
+                                <goals>
+                                    <goal>unpack-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <includeArtifactIds>bench-model</includeArtifactIds>
+                                    <outputDirectory>${project.build.directory}/unwoven</outputDirectory>
+                                    <excludes>META-INF/**</excludes>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>unpack-persistence-xml</id>
+                                <phase>process-classes</phase>
+                                <goals>
+                                    <goal>unpack-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <includeArtifactIds>bench-core</includeArtifactIds>
+                                    <outputDirectory>${project.build.directory}/persistence-info</outputDirectory>
+                                    <includes>META-INF/persistence.xml</includes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>${exec-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>weave-model</id>
+                                <phase>process-classes</phase>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <configuration>
+                                    <mainClass>org.eclipse.persistence.tools.weaving.jpa.StaticWeave</mainClass>
+                                    <classpathScope>compile</classpathScope>
+                                    <arguments>
+                                        <argument>-persistenceinfo</argument>
+                                        <argument>${project.build.directory}/persistence-info</argument>
+                                        <argument>-loglevel</argument>
+                                        <argument>WARNING</argument>
+                                        <argument>${project.build.directory}/unwoven</argument>
+                                        <argument>${project.build.outputDirectory}</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>benchmarks-jar</id>
+                                <configuration>
+                                    <artifactSet>
+                                        <excludes>
+                                            <exclude>${project.groupId}:bench-model</exclude>
+                                        </excludes>
+                                    </artifactSet>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
