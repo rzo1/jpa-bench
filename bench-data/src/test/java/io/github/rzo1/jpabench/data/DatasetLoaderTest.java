@@ -24,6 +24,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Locale;
 
 import org.junit.jupiter.api.Test;
 
@@ -68,6 +69,30 @@ class DatasetLoaderTest {
         String other = new DataGenerator(DataGenerator.DEFAULT_SEED + 1, DatasetSize.S).generate(IGNORE).hex();
         assertEquals(first, second);
         assertNotEquals(first, other);
+    }
+
+    /**
+     * Golden checksum of dataset S with the default seed. Every published result was produced with this data; if
+     * this test fails, the generator (or the JDK's formatting of a value) changed and results are no longer
+     * comparable with earlier runs.
+     */
+    @Test
+    void defaultDatasetMatchesGoldenChecksum() {
+        assertEquals(20260101L, DataGenerator.DEFAULT_SEED);
+        Checksum checksum = new DataGenerator(DataGenerator.DEFAULT_SEED, DatasetSize.S).generate(IGNORE);
+        assertEquals("17f556d4e3d90c3d", checksum.hex());
+    }
+
+    @Test
+    void generatesTheSameDataInEveryLocale() {
+        Locale previous = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("ar-EG"));
+            assertEquals("17f556d4e3d90c3d",
+                    new DataGenerator(DataGenerator.DEFAULT_SEED, DatasetSize.S).generate(IGNORE).hex());
+        } finally {
+            Locale.setDefault(previous);
+        }
     }
 
     @Test

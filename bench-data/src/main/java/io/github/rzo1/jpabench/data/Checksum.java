@@ -16,6 +16,7 @@
 package io.github.rzo1.jpabench.data;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 /**
  * 64-bit FNV-1a checksum over the canonical text form (the record {@code toString()}) of every generated row.
@@ -48,6 +49,6 @@ public final class Checksum {
     }
 
     public String hex() {
-        return String.format("%016x", hash);
+        return String.format(Locale.ROOT, "%016x", hash);
     }
 }

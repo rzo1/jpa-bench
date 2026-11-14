@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.SplittableRandom;
 import java.util.TreeSet;
 
@@ -116,7 +117,7 @@ public final class DataGenerator {
 
     /** The SKU of product {@code id}. */
     public static String productSku(long id) {
-        return String.format("SKU-%08d", id);
+        return String.format(Locale.ROOT, "SKU-%08d", id);
     }
 
     /**
@@ -153,7 +154,7 @@ public final class DataGenerator {
             CustomerRow row = new CustomerRow(id, pick(random, FIRST_NAMES), pick(random, LAST_NAMES),
                     customerEmail(id), customerEpoch.plusDays(random.nextInt(1_460)),
                     (1 + random.nextInt(200)) + " " + pick(random, STREETS), CITIES.get(city),
-                    String.format("%05d", random.nextInt(100_000)), COUNTRIES.get(city));
+                    String.format(Locale.ROOT, "%05d", random.nextInt(100_000)), COUNTRIES.get(city));
             checksum.update(row);
             visitor.customer(row);
         }

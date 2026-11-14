@@ -15,6 +15,7 @@
  */
 package io.github.rzo1.jpabench.core;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -74,7 +75,7 @@ public final class ProviderInfo {
                 case '\t' -> sb.append("\\t");
                 default -> {
                     if (c < 0x20) {
-                        sb.append(String.format("\\u%04x", (int) c));
+                        sb.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
                     } else {
                         sb.append(c);
                     }
