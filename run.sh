@@ -230,8 +230,8 @@ case "$(uname -s)" in
         MEMORY_BYTES=$(sysctl -n hw.memsize 2>/dev/null || echo 0)
         # model name and chip only (system_profiler also prints serial numbers)
         HW=$(system_profiler SPHardwareDataType 2>/dev/null || true)
-        MODEL=$(echo "$HW" | sed -n 's/^ *Model Name: //p' | first_line)
-        CHIP=$(echo "$HW" | sed -n 's/^ *Chip: //p' | first_line)
+        MODEL=$(echo "$HW" | sed -n 's/^ *Model Name: //p' | first_line || true)
+        CHIP=$(echo "$HW" | sed -n 's/^ *Chip: //p' | first_line || true)
         if [ -n "$CHIP" ]; then
             CPU=$CHIP
         fi
@@ -246,21 +246,21 @@ case "$(uname -s)" in
         done
         OS_PRETTY="macOS $(sw_vers -productVersion 2>/dev/null || true) ($(sw_vers -buildVersion 2>/dev/null || true))"
         BATT=$(pmset -g batt 2>/dev/null || true)
-        POWER=$(echo "$BATT" | sed -n "s/.*drawing from '\(.*\)'.*/\1/p" | first_line)
-        BATTERY=$(echo "$BATT" | sed -n 's/.*InternalBattery.*[[:space:]]\([0-9][0-9]*%; [^;]*\).*/\1/p' | first_line)
+        POWER=$(echo "$BATT" | sed -n "s/.*drawing from '\(.*\)'.*/\1/p" | first_line || true)
+        BATTERY=$(echo "$BATT" | sed -n 's/.*InternalBattery.*[[:space:]]\([0-9][0-9]*%; [^;]*\).*/\1/p' | first_line || true)
         # powermode 1 / lowpowermode 1: Low Power Mode
         LOW_POWER=$(pmset -g 2>/dev/null | awk '$1 == "lowpowermode" || $1 == "powermode" { print ($2 == 1 ? "true" : "false"); exit }' || true) ;;
     Linux)
-        VENDOR=$(first_line < /sys/class/dmi/id/sys_vendor 2>/dev/null || true)
-        MODEL=$(first_line < /sys/class/dmi/id/product_name 2>/dev/null || true)
+        VENDOR=$(first_line 2>/dev/null < /sys/class/dmi/id/sys_vendor || true)
+        MODEL=$(first_line 2>/dev/null < /sys/class/dmi/id/product_name || true)
         CPU=$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2- | sed 's/^ *//' || true)
         CPU=${CPU:-unknown}
         CORES=$(nproc 2>/dev/null || echo unknown)
         MEMORY_BYTES=$(awk '/MemTotal/ {print $2 * 1024}' /proc/meminfo 2>/dev/null || echo 0)
-        OS_PRETTY=$(sed -n 's/^PRETTY_NAME="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' /etc/os-release 2>/dev/null | first_line)
-        GOVERNOR=$(first_line < /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || true)
+        OS_PRETTY=$(sed -n 's/^PRETTY_NAME="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' /etc/os-release 2>/dev/null | first_line || true)
+        GOVERNOR=$(first_line 2>/dev/null < /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor || true)
         for supply in /sys/class/power_supply/*; do
-            if [ -f "$supply/online" ] && [ "$(first_line < "$supply/type" 2>/dev/null || true)" = Mains ]; then
+            if [ -f "$supply/online" ] && [ "$(first_line 2>/dev/null < "$supply/type" || true)" = Mains ]; then
                 if [ "$(first_line < "$supply/online")" = 1 ]; then POWER="AC Power"; else POWER="Battery Power"; fi
             fi
         done ;;
