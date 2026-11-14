@@ -27,5 +27,198 @@
 
     <artifactId>runner-openjpa-4.2</artifactId>
     <name>jpa-bench :: runner-openjpa-4.2</name>
-    <description>Benchmark runner for Apache OpenJPA 4.2.0-SNAPSHOT (stub, not implemented yet; see runner-hibernate-7 for the reference).</description>
+    <description>Benchmark runner for Apache OpenJPA 4.2.0-SNAPSHOT (JPA 3.2), latest build of the Apache snapshot repository.</description>
+
+    <properties>
+        <!-- the latest snapshot; the exact build (timestamp-buildNumber, git revision) is recorded at build time -->
+        <openjpa.version>4.2.0-SNAPSHOT</openjpa.version>
+        <!-- OpenJPA needs the model enhanced; done at build time below -->
+        <bench.enhancement>build-time (openjpa-maven-plugin)</bench.enhancement>
+        <!-- replaced by the record-snapshot-build execution with the resolved artifact -->
+        <openjpa.build>unknown</openjpa.build>
+        <openjpa.revision>unknown</openjpa.revision>
+
+        <gmavenplus-plugin.version>4.3.1</gmavenplus-plugin.version>
+        <groovy.version>4.0.31</groovy.version>
+    </properties>
+
+    <!-- Snapshots are enabled for the Apache snapshot repository only, and only in this runner. -->
+    <repositories>
+        <repository>
+            <id>apache-snapshots</id>
+            <url>https://repository.apache.org/content/repositories/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
+            </snapshots>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>apache-snapshots</id>
+            <url>https://repository.apache.org/content/repositories/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-model</artifactId>
+        </dependency>
+        <!-- exactly one provider; it brings its own jakarta.persistence-api (3.2) -->
+        <dependency>
+            <groupId>org.apache.openjpa</groupId>
+            <artifactId>openjpa</artifactId>
+            <version>${openjpa.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <!--
+              Records the exact snapshot build that was resolved (e.g. 4.2.0-20261114.035154-55) and the git
+              revision stored in the OpenJPA jar, as Maven properties that are filtered into
+              bench-provider.properties (and from there into run.sh's metadata.json).
+            -->
+            <plugin>
+                <groupId>org.codehaus.gmavenplus</groupId>
+                <artifactId>gmavenplus-plugin</artifactId>
+                <version>${gmavenplus-plugin.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.groovy</groupId>
+                        <artifactId>groovy</artifactId>
+                        <version>${groovy.version}</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>record-snapshot-build</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>execute</goal>
+                        </goals>
+                        <configuration>
+                            <scripts>
+                                <script><![CDATA[
+                                    def openjpa = project.artifacts.find {
+                                        it.groupId == 'org.apache.openjpa' && it.artifactId == 'openjpa'
+                                    }
+                                    if (openjpa == null) {
+                                        throw new IllegalStateException('org.apache.openjpa:openjpa is not resolved')
+                                    }
+                                    // a snapshot resolved from a remote repository has its timestamped version
+                                    // here; a locally installed one keeps "-SNAPSHOT"
+                                    // (no GString placeholders here: Maven would interpolate them)
+                                    def resolved = openjpa.version
+                                    if (resolved.endsWith('-SNAPSHOT')) {
+                                        resolved += ' (locally installed build, not from the Apache snapshot repository)'
+                                        log.warn('Using a locally installed OpenJPA snapshot: ' + openjpa.file)
+                                    }
+                                    def revision = 'unknown'
+                                    new java.util.zip.ZipFile(openjpa.file).withCloseable { zip ->
+                                        def entry = zip.getEntry('META-INF/org.apache.openjpa.revision.properties')
+                                        if (entry != null) {
+                                            def props = new Properties()
+                                            zip.getInputStream(entry).withCloseable { props.load(it) }
+                                            revision = props.getProperty('revision.number', 'unknown')
+                                        }
+                                    }
+                                    project.properties.setProperty('openjpa.build', resolved)
+                                    project.properties.setProperty('openjpa.revision', revision)
+                                    log.info('OpenJPA build ' + resolved + ', git revision ' + revision)
+                                ]]></script>
+                            </scripts>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- OpenJPA requires enhanced entities: unpack the model into target/classes and enhance it there -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>unpack-model</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeArtifactIds>bench-model</includeArtifactIds>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                            <excludes>META-INF/**</excludes>
+                            <!-- always unpack fresh, unenhanced classes so the enhancer sees them on every build -->
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.openjpa</groupId>
+                <artifactId>openjpa-maven-plugin</artifactId>
+                <version>${openjpa.version}</version>
+                <executions>
+                    <execution>
+                        <id>enhance-model</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>enhance</goal>
+                        </goals>
+                        <configuration>
+                            <includes>io/github/rzo1/jpabench/model/*.class</includes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>benchmarks-jar</id>
+                        <configuration>
+                            <!-- the enhanced copies in target/classes replace the unenhanced model jar -->
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>${project.groupId}:bench-model</exclude>
+                                </excludes>
+                            </artifactSet>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
