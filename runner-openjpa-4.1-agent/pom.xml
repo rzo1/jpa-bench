@@ -25,11 +25,7 @@
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <!--
-      runner-openjpa-4.1 with runtime enhancement: the same settings, but the model is enhanced by the OpenJPA
-      javaagent when the classes are loaded instead of by openjpa-maven-plugin at build time. The steady state
-      should match the build-time runner; the enhancement cost shows up in the bootstrap and cold start jobs.
-    -->
+    <!-- runner-openjpa-4.1 with the model enhanced at class load time by the OpenJPA javaagent -->
     <artifactId>runner-openjpa-4.1-agent</artifactId>
     <name>jpa-bench :: runner-openjpa-4.1-agent</name>
     <description>Benchmark runner for Apache OpenJPA 4.1 (JPA 3.1), model enhanced at class load time by the OpenJPA javaagent.</description>
@@ -45,7 +41,7 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>bench-core</artifactId>
         </dependency>
-        <!-- shaded unenhanced; the agent enhances it at class load time -->
+        <!-- shaded unenhanced -->
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>bench-model</artifactId>
@@ -77,13 +73,7 @@
             </resource>
         </resources>
         <plugins>
-            <!--
-              The OpenJPA jar is the agent (Premain-Class org.apache.openjpa.enhance.PCEnhancerAgent): it is copied
-              to target/javaagent.jar and run.sh starts every JMH fork with -javaagent:<runner>/target/javaagent.jar.
-              The agent reads META-INF/persistence.xml (bench-core) and enhances the listed classes when they are
-              loaded. The model is shaded unenhanced; openjpa.RuntimeUnenhancedClasses=unsupported (shared settings
-              file) makes every run without the agent fail instead of silently running unenhanced.
-            -->
+            <!-- the OpenJPA jar is the javaagent; run.sh passes target/javaagent.jar to every fork -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>

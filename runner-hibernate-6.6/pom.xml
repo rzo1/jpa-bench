@@ -78,11 +78,7 @@
     </build>
 
     <profiles>
-        <!--
-          Optional build-time bytecode enhancement (mvn -Penhance package): the model classes are unpacked into
-          target/classes, enhanced there with lazy initialization and dirty tracking, and the unenhanced
-          bench-model jar is left out of benchmarks.jar. Off by default: Hibernate does not need enhancement.
-        -->
+        <!-- optional build-time enhancement (-Penhance): lazy initialization and dirty tracking -->
         <profile>
             <id>enhance</id>
             <properties>
@@ -108,7 +104,7 @@
                             </execution>
                         </executions>
                     </plugin>
-                    <!-- Hibernate 6.x ships the enhancer as hibernate-enhance-maven-plugin (7 renamed it hibernate-maven-plugin) -->
+                    <!-- renamed to hibernate-maven-plugin in Hibernate 7 -->
                     <plugin>
                         <groupId>org.hibernate.orm.tooling</groupId>
                         <artifactId>hibernate-enhance-maven-plugin</artifactId>

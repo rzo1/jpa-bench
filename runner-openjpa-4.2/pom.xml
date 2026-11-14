@@ -30,11 +30,11 @@
     <description>Benchmark runner for Apache OpenJPA 4.2.0-SNAPSHOT (JPA 3.2), latest build of the Apache snapshot repository.</description>
 
     <properties>
-        <!-- the latest snapshot; the exact build (timestamp-buildNumber, git revision) is recorded at build time -->
+        <!-- latest snapshot; the resolved build is recorded by record-snapshot-build -->
         <openjpa.version>4.2.0-SNAPSHOT</openjpa.version>
-        <!-- OpenJPA needs the model enhanced; done at build time below -->
+        <!-- written into bench-provider.properties -->
         <bench.enhancement>build-time (openjpa-maven-plugin)</bench.enhancement>
-        <!-- replaced by the record-snapshot-build execution with the resolved artifact -->
+        <!-- set by record-snapshot-build -->
         <openjpa.build>unknown</openjpa.build>
         <openjpa.revision>unknown</openjpa.revision>
 
@@ -105,11 +105,7 @@
             </resource>
         </resources>
         <plugins>
-            <!--
-              Records the exact snapshot build that was resolved (e.g. 4.2.0-20261114.035154-55) and the git
-              revision stored in the OpenJPA jar, as Maven properties that are filtered into
-              bench-provider.properties (and from there into run.sh's metadata.json).
-            -->
+            <!-- records the resolved snapshot build and the git revision of the OpenJPA jar -->
             <plugin>
                 <groupId>org.codehaus.gmavenplus</groupId>
                 <artifactId>gmavenplus-plugin</artifactId>
@@ -137,9 +133,8 @@
                                     if (openjpa == null) {
                                         throw new IllegalStateException('org.apache.openjpa:openjpa is not resolved')
                                     }
-                                    // a snapshot resolved from a remote repository has its timestamped version
-                                    // here; a locally installed one keeps "-SNAPSHOT"
-                                    // (no GString placeholders here: Maven would interpolate them)
+                                    // a locally installed snapshot keeps "-SNAPSHOT" instead of a timestamp;
+                                    // no GString placeholders: Maven would interpolate them
                                     def resolved = openjpa.version
                                     if (resolved.endsWith('-SNAPSHOT')) {
                                         resolved += ' (locally installed build, not from the Apache snapshot repository)'
@@ -178,7 +173,7 @@
                             <includeArtifactIds>bench-model</includeArtifactIds>
                             <outputDirectory>${project.build.outputDirectory}</outputDirectory>
                             <excludes>META-INF/**</excludes>
-                            <!-- always unpack fresh, unenhanced classes so the enhancer sees them on every build -->
+                            <!-- always unpack fresh, unenhanced classes -->
                             <overWriteReleases>true</overWriteReleases>
                             <overWriteSnapshots>true</overWriteSnapshots>
                         </configuration>

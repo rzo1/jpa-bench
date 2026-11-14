@@ -25,20 +25,16 @@
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <!--
-      runner-openjpa-4.2 with runtime enhancement: the same settings, but the model is enhanced by the OpenJPA
-      javaagent when the classes are loaded instead of by openjpa-maven-plugin at build time. The steady state
-      should match the build-time runner; the enhancement cost shows up in the bootstrap and cold start jobs.
-    -->
+    <!-- runner-openjpa-4.2 with the model enhanced at class load time by the OpenJPA javaagent -->
     <artifactId>runner-openjpa-4.2-agent</artifactId>
     <name>jpa-bench :: runner-openjpa-4.2-agent</name>
     <description>Benchmark runner for Apache OpenJPA 4.2.0-SNAPSHOT (JPA 3.2), latest build of the Apache snapshot repository, model enhanced at class load time by the OpenJPA javaagent.</description>
 
     <properties>
-        <!-- the latest snapshot; the exact build (timestamp-buildNumber, git revision) is recorded at build time -->
+        <!-- latest snapshot; the resolved build is recorded by record-snapshot-build -->
         <openjpa.version>4.2.0-SNAPSHOT</openjpa.version>
         <bench.enhancement>runtime (-javaagent, PCEnhancerAgent)</bench.enhancement>
-        <!-- replaced by the record-snapshot-build execution with the resolved artifact -->
+        <!-- set by record-snapshot-build -->
         <openjpa.build>unknown</openjpa.build>
         <openjpa.revision>unknown</openjpa.revision>
 
@@ -110,11 +106,7 @@
             </resource>
         </resources>
         <plugins>
-            <!--
-              Records the exact snapshot build that was resolved (e.g. 4.2.0-20261114.035154-55) and the git
-              revision stored in the OpenJPA jar, as Maven properties that are filtered into
-              bench-provider.properties (and from there into run.sh's metadata.json).
-            -->
+            <!-- records the resolved snapshot build and the git revision of the OpenJPA jar -->
             <plugin>
                 <groupId>org.codehaus.gmavenplus</groupId>
                 <artifactId>gmavenplus-plugin</artifactId>
@@ -142,9 +134,8 @@
                                     if (openjpa == null) {
                                         throw new IllegalStateException('org.apache.openjpa:openjpa is not resolved')
                                     }
-                                    // a snapshot resolved from a remote repository has its timestamped version
-                                    // here; a locally installed one keeps "-SNAPSHOT"
-                                    // (no GString placeholders here: Maven would interpolate them)
+                                    // a locally installed snapshot keeps "-SNAPSHOT" instead of a timestamp;
+                                    // no GString placeholders: Maven would interpolate them
                                     def resolved = openjpa.version
                                     if (resolved.endsWith('-SNAPSHOT')) {
                                         resolved += ' (locally installed build, not from the Apache snapshot repository)'
@@ -168,13 +159,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <!--
-              The OpenJPA jar is the agent (Premain-Class org.apache.openjpa.enhance.PCEnhancerAgent): it is copied
-              to target/javaagent.jar and run.sh starts every JMH fork with -javaagent:<runner>/target/javaagent.jar.
-              The agent reads META-INF/persistence.xml (bench-core) and enhances the listed classes when they are
-              loaded. The model is shaded unenhanced; openjpa.RuntimeUnenhancedClasses=unsupported (shared settings
-              file) makes every run without the agent fail instead of silently running unenhanced.
-            -->
+            <!-- the OpenJPA jar is the javaagent; run.sh passes target/javaagent.jar to every fork -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>

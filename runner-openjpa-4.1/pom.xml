@@ -40,7 +40,7 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>bench-core</artifactId>
         </dependency>
-        <!-- unpacked into target/classes and enhanced there; the unenhanced jar is not shaded (see below) -->
+        <!-- enhanced into target/classes; the jar itself is not shaded -->
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>bench-model</artifactId>
@@ -71,11 +71,7 @@
             </resource>
         </resources>
         <plugins>
-            <!--
-              OpenJPA needs enhanced entities (runtime enhancement is switched off in bench-provider.properties),
-              so the model classes are unpacked into target/classes and enhanced there at build time. The
-              persistence unit (META-INF/persistence.xml of bench-core) is found by the plugin on the classpath.
-            -->
+            <!-- OpenJPA requires enhanced entities: unpack the model into target/classes and enhance it there -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -90,7 +86,7 @@
                             <includeArtifactIds>bench-model</includeArtifactIds>
                             <outputDirectory>${project.build.outputDirectory}</outputDirectory>
                             <excludes>META-INF/**</excludes>
-                            <!-- always unpack fresh, unenhanced classes so the enhancer sees them on every build -->
+                            <!-- always unpack fresh, unenhanced classes -->
                             <overWriteReleases>true</overWriteReleases>
                             <overWriteSnapshots>true</overWriteSnapshots>
                         </configuration>

@@ -56,9 +56,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.release>21</maven.compiler.release>
 
-        <!-- The entity model and the benchmarks are compiled against JPA 3.1 only (provided scope).
-             The version is deliberately NOT in dependencyManagement: every runner gets the API version
-             its provider depends on. -->
+        <!-- compile-time API only (provided, not managed): every runner uses its provider's API version -->
         <jakarta.persistence-api.version>3.1.0</jakarta.persistence-api.version>
 
         <jmh.version>1.37</jmh.version>
@@ -70,25 +68,18 @@
         <slf4j.version>2.0.20</slf4j.version>
         <junit.version>6.1.3</junit.version>
 
-        <!-- EclipseLink versions, shared by the unwoven and the woven runner of each line.
-             5.0.3 is not released yet (Maven Central only has 5.0.3-RC1): latest final 5.0.x -->
+        <!-- shared by the unwoven and woven runners; 5.0.2 is the latest final 5.0.x -->
         <eclipselink4.version>4.0.10</eclipselink4.version>
         <eclipselink5.version>5.0.2</eclipselink5.version>
 
-        <!-- Static weaving (EclipseLink): the executions in pluginManagement below are bound to this phase;
-             "none" switches them off. The weave profile of runner-eclipselink-* and the *-woven runners set
-             process-classes. -->
+        <!-- phase of the EclipseLink static weaving executions; "none" disables them -->
         <bench.weave.phase>none</bench.weave.phase>
-        <!-- artifact left out of benchmarks.jar; runners whose model classes live in target/classes (enhanced or
-             woven) set ${project.groupId}:bench-model -->
+        <!-- artifact excluded from benchmarks.jar; runners with enhanced or woven model classes set bench-model -->
         <bench.shade.excludeModel>${project.groupId}:bench-model-is-included</bench.shade.excludeModel>
-        <!-- model classes in a runner's target/classes are always removed at the start of a build (see the
-             remove-stale-model execution); bench-model itself sets true -->
+        <!-- skips the remove-stale-model execution; bench-model sets true -->
         <bench.removeStaleModel.skip>false</bench.removeStaleModel.skip>
 
-        <!-- Database settings shared by all runners. The single place of the PostgreSQL image: pinned by the
-             digest of the multi-platform image index, because a tag can be re-pushed with a new base image.
-             Filtered into bench-core's bench-build.properties, read by DatabaseServer and recorded by run.sh. -->
+        <!-- PostgreSQL image, pinned by digest since tags can be re-pushed; filtered into bench-build.properties -->
         <postgres.image>postgres:18.1@sha256:1090bc3a8ccfb0b55f78a494d76f8d603434f7e4553543d6e807bc7bd6bbd17f</postgres.image>
 
         <exec-maven-plugin.version>3.5.1</exec-maven-plugin.version>
@@ -200,8 +191,7 @@
                     <artifactId>maven-dependency-plugin</artifactId>
                     <version>${maven-dependency-plugin.version}</version>
                     <executions>
-                        <!-- EclipseLink static weaving, step 1 (bound to ${bench.weave.phase}): the unwoven model
-                             classes and bench-core's persistence.xml -->
+                        <!-- EclipseLink static weaving, step 1: unpack the model and bench-core's persistence.xml -->
                         <execution>
                             <id>weave-unpack-model</id>
                             <phase>${bench.weave.phase}</phase>
@@ -279,8 +269,7 @@
                     <artifactId>maven-resources-plugin</artifactId>
                     <version>${maven-resources-plugin.version}</version>
                     <configuration>
-                        <!-- filtered resources use @property@ so that ${...} placeholders of the
-                             bench-*.properties files are left for ProviderSettings -->
+                        <!-- @property@ only, so ${...} placeholders are left for ProviderSettings -->
                         <useDefaultDelimiters>false</useDefaultDelimiters>
                         <delimiters>
                             <delimiter>@</delimiter>
@@ -292,8 +281,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                 </plugin>
-                <!-- Every runner builds target/benchmarks.jar with exactly this configuration.
-                     A runner only declares the plugin (groupId/artifactId) in its own pom. -->
+                <!-- builds target/benchmarks.jar; runners only declare the plugin -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
@@ -348,12 +336,7 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!--
-              Enhanced or woven model classes of an earlier build (-Penhance, -Pweave) must never end up in a
-              later build without that profile: target/classes would still contain them, the shaded jar would
-              prefer them over the bench-model jar, and the recorded enhancement mode would be wrong. So every
-              build of a runner starts without model classes in target/classes; enhancing builds unpack fresh ones.
-            -->
+            <!-- removes model classes of an earlier -Penhance/-Pweave build from target/classes -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
