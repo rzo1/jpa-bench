@@ -17,7 +17,9 @@ package io.github.rzo1.jpabench.core.env;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -90,7 +92,7 @@ public final class BenchEnvironment implements AutoCloseable {
     /** Starts the database and the connection pool. */
     public static BenchEnvironment start(Database database) {
         ProviderSettings settings = ProviderSettings.load(database);
-        DatabaseServer server = DatabaseServer.start(database);
+        DatabaseServer server = DatabaseServer.start(database, settings);
         try {
             HikariConfig config = new HikariConfig();
             config.setPoolName("jpa-bench");
@@ -167,13 +169,19 @@ public final class BenchEnvironment implements AutoCloseable {
         return Persistence.createEntityManagerFactory(PERSISTENCE_UNIT, entityManagerFactoryProperties());
     }
 
+    /** PostgreSQL server settings that influence the results; logged with every trial. */
+    private static final String[] PG_SETTINGS = {
+        "shared_buffers", "work_mem", "effective_cache_size", "synchronous_commit", "fsync", "jit", "autovacuum",
+        "max_connections", "random_page_cost"
+    };
+
     /** One line describing provider, database and settings, printed at the start of every trial. */
     public String describe() {
         String product;
         try (Connection connection = pool.getConnection()) {
             DatabaseMetaData meta = connection.getMetaData();
             product = meta.getDatabaseProductName() + " " + meta.getDatabaseProductVersion() + ", driver "
-                    + meta.getDriverName() + " " + meta.getDriverVersion();
+                    + meta.getDriverName() + " " + meta.getDriverVersion() + serverSettings(connection);
             connection.rollback();
         } catch (SQLException e) {
             product = "unknown (" + e.getMessage() + ")";
@@ -181,6 +189,27 @@ public final class BenchEnvironment implements AutoCloseable {
         return "provider " + settings.providerName() + " " + settings.providerVersion() + " on "
                 + server.description() + " [" + product + "] metering " + (metering ? "on" : "off") + " settings "
                 + settings.providerProperties();
+    }
+
+    /** {@code SELECT version()} and the {@link #PG_SETTINGS} on PostgreSQL, nothing on other databases. */
+    private String serverSettings(Connection connection) throws SQLException {
+        if (database != Database.POSTGRESQL) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        try (Statement statement = connection.createStatement()) {
+            try (ResultSet rs = statement.executeQuery("SELECT version()")) {
+                rs.next();
+                sb.append(", server ").append(rs.getString(1));
+            }
+            for (String name : PG_SETTINGS) {
+                try (ResultSet rs = statement.executeQuery("SHOW " + name)) {
+                    rs.next();
+                    sb.append(", ").append(name).append('=').append(rs.getString(1));
+                }
+            }
+        }
+        return sb.toString();
     }
 
     public void log(String message) {

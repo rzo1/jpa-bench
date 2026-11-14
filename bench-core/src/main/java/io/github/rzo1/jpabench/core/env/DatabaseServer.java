@@ -28,7 +28,7 @@ import io.github.rzo1.jpabench.data.Database;
  */
 public sealed interface DatabaseServer extends AutoCloseable {
 
-    /** Environment variable selecting the PostgreSQL image (default {@value PostgreSql#DEFAULT_IMAGE}). */
+    /** Environment variable selecting the PostgreSQL image (default: {@code bench.postgres.image}, pinned by digest). */
     String ENV_PG_IMAGE = "JPABENCH_PG_IMAGE";
     /** Environment variable with the CPU limit of the PostgreSQL container (default 2). */
     String ENV_PG_CPUS = "JPABENCH_PG_CPUS";
@@ -53,10 +53,11 @@ public sealed interface DatabaseServer extends AutoCloseable {
     @Override
     void close();
 
-    static DatabaseServer start(Database database) {
+    /** Starts {@code database}; settings provide the defaults ({@code bench.postgres.image}). */
+    static DatabaseServer start(Database database, ProviderSettings settings) {
         return switch (database) {
             case H2 -> new H2();
-            case POSTGRESQL -> PostgreSql.start();
+            case POSTGRESQL -> PostgreSql.start(settings.harness(PostgreSql.IMAGE_SETTING));
         };
     }
 
@@ -100,7 +101,8 @@ public sealed interface DatabaseServer extends AutoCloseable {
      */
     final class PostgreSql implements DatabaseServer {
 
-        public static final String DEFAULT_IMAGE = "postgres:18.1";
+        /** Setting (from bench-build.properties, i.e. the root pom) with the default image. */
+        public static final String IMAGE_SETTING = "bench.postgres.image";
         public static final int DEFAULT_CPUS = 2;
         public static final int DEFAULT_MEMORY_MB = 2048;
 
@@ -119,18 +121,17 @@ public sealed interface DatabaseServer extends AutoCloseable {
             this.description = description;
         }
 
-        static PostgreSql start() {
+        static PostgreSql start(String defaultImage) {
             Map<String, String> env = System.getenv();
             String external = env.get(ENV_PG_URL);
             if (external != null && !external.isBlank()) {
                 return new PostgreSql(null, external, env.getOrDefault(ENV_PG_USER, "bench"),
                         env.getOrDefault(ENV_PG_PASSWORD, "bench"), "external PostgreSQL " + external);
             }
-            String image = env.getOrDefault(ENV_PG_IMAGE, DEFAULT_IMAGE);
+            String image = env.getOrDefault(ENV_PG_IMAGE, defaultImage);
             int cpus = Integer.parseInt(env.getOrDefault(ENV_PG_CPUS, String.valueOf(DEFAULT_CPUS)));
             long memoryMb = Long.parseLong(env.getOrDefault(ENV_PG_MEMORY_MB, String.valueOf(DEFAULT_MEMORY_MB)));
-            PostgreSQLContainer container = new PostgreSQLContainer(
-                    DockerImageName.parse(image).asCompatibleSubstituteFor("postgres"))
+            PostgreSQLContainer container = new PostgreSQLContainer(imageName(image))
                     .withDatabaseName("bench")
                     .withUsername("bench")
                     .withPassword("bench")
@@ -153,6 +154,24 @@ public sealed interface DatabaseServer extends AutoCloseable {
                     container.getPassword(),
                     "PostgreSQL " + image + " (Testcontainers, cpus=" + cpus + ", memory=" + memoryMb
                             + "MiB, tmpfs, fsync=off, autovacuum=off)");
+        }
+
+        /**
+         * Docker accepts {@code name:tag@sha256:digest}, Testcontainers only {@code name:tag} or
+         * {@code name@sha256:digest}: with a digest the tag is informational only and dropped here.
+         */
+        static DockerImageName imageName(String image) {
+            int at = image.indexOf("@sha256:");
+            String reference = image;
+            if (at > 0) {
+                String name = image.substring(0, at);
+                int colon = name.lastIndexOf(':');
+                if (colon > name.lastIndexOf('/')) {
+                    name = name.substring(0, colon);
+                }
+                reference = name + image.substring(at);
+            }
+            return DockerImageName.parse(reference).asCompatibleSubstituteFor("postgres");
         }
 
         @Override
