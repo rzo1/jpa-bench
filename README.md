@@ -52,8 +52,9 @@ run.sh            runs the matrix runner x database x dataset
    to turn it on. The mode is recorded in `metadata.json` (`bench.provider.enhancement`).
 6. **Results are really loaded.** Every benchmark touches the fields and collections the operation is
    supposed to load and folds them into a checksum consumed by a JMH `Blackhole`.
-7. **Same JVM conditions.** One `EntityManagerFactory` per fork, forks with `-Xms2g -Xmx2g`, runs strictly
-   one after another.
+7. **Same JVM conditions.** One `EntityManagerFactory` per fork, forks with `-Xms2g -Xmx2g`
+   (`@Fork(jvmArgs)`; `run.sh --jvm-args "..."` replaces them for every runner alike), runs strictly one after
+   another.
 
 ## Benchmarks
 

@@ -64,7 +64,7 @@ import jakarta.persistence.criteria.Root;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 5, time = 10)
 @Measurement(iterations = 5, time = 10)
-@Fork(value = 2, jvmArgsAppend = {"-Xms2g", "-Xmx2g"})
+@Fork(value = 2, jvmArgs = {"-Xms2g", "-Xmx2g"})
 public class ReadBenchmarks {
 
     /** Orders per lazy navigation / join fetch operation. */

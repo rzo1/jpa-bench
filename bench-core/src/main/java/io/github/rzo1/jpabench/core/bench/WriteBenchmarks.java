@@ -51,7 +51,7 @@ import io.github.rzo1.jpabench.model.PurchaseOrder;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 5, time = 10)
 @Measurement(iterations = 5, time = 10)
-@Fork(value = 2, jvmArgsAppend = {"-Xms2g", "-Xmx2g"})
+@Fork(value = 2, jvmArgs = {"-Xms2g", "-Xmx2g"})
 public class WriteBenchmarks {
 
     /** Lines per persisted order. */

@@ -66,7 +66,7 @@ JMH settings:
   --warmup-time T         (default: $WARMUP_TIME)
   --time T                measurement iteration time (default: $TIME)
   --bootstrap-iterations N  measured emfBootstrap shots per fork (default: $BOOTSTRAP_ITERATIONS)
-  --jvm-args "ARGS"       replaces the fork JVM arguments (default from @Fork: -Xms2g -Xmx2g)
+  --jvm-args "ARGS"       replaces the fork JVM arguments (JMH -jvmArgs; default from @Fork(jvmArgs): -Xms2g -Xmx2g)
   --smoke                 1 fork, 1 warmup + 1 measurement iteration of 1s (checks that everything runs)
 
 Other:

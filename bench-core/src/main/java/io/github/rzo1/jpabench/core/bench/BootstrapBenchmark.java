@@ -48,7 +48,7 @@ import jakarta.persistence.EntityManagerFactory;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 5)
 @Measurement(iterations = 20)
-@Fork(value = 2, jvmArgsAppend = {"-Xms2g", "-Xmx2g"})
+@Fork(value = 2, jvmArgs = {"-Xms2g", "-Xmx2g"})
 public class BootstrapBenchmark {
 
     /** Holds the database and the schema (no data), not the EMF. */
