@@ -121,6 +121,9 @@ def test_validate_accepts_a_complete_run_and_rejects_broken_ones(tmp_path: Path)
     assert main(["validate", str(tmp_path)]) == 1
 
     assert not validate(tmp_path / "missing-dir").ok
+    (tmp_path / "empty").mkdir()
+    assert main(["validate", str(tmp_path / "empty")]) == 0
+    assert main(["site", str(tmp_path / "empty"), "-o", str(tmp_path / "site")]) == 0
 
 
 def test_validate_reports_incomplete_runs(tmp_path: Path) -> None:

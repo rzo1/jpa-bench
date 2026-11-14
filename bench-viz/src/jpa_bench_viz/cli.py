@@ -110,7 +110,9 @@ def _validate(args: argparse.Namespace) -> int:
     for path in args.dirs:
         if not path.is_dir():
             raise FileNotFoundError(f"not a directory: {path}")
-        dirs.extend([path] if (path / "metadata.json").is_file() or not run_dirs(path) else run_dirs(path))
+        dirs.extend([path] if (path / "metadata.json").is_file() else run_dirs(path))
+    if not dirs:
+        print("no runs")
     failed = 0
     for directory in dirs:
         report = validate(directory, args.submission)

@@ -1,0 +1,89 @@
+#
+# Copyright the jpa-bench authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Builds the results site from runs/ with bench-viz of the main branch.
+# Push to results: validate, build, deploy. Pull request: validate and build only.
+name: Pages
+
+on:
+  push:
+    branches: [results]
+  pull_request:
+    branches: [results]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: results
+          fetch-depth: 0
+      - uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository }}
+          ref: main
+          path: main
+          sparse-checkout: bench-viz
+      - uses: astral-sh/setup-uv@v6
+      - name: Pull request changes runs/ only
+        if: github.event_name == 'pull_request'
+        working-directory: results
+        run: |
+          outside=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -v '^runs/' || true)
+          if [ -n "$outside" ]; then
+            echo "Only runs/<run-id>/ may change, not:"
+            echo "$outside"
+            exit 1
+          fi
+      - name: Validate
+        working-directory: main/bench-viz
+        run: uv run jpa-bench-viz validate --submission "$GITHUB_WORKSPACE/results/runs"
+      - name: Build site
+        working-directory: main/bench-viz
+        run: uv run jpa-bench-viz site "$GITHUB_WORKSPACE/results/runs" -o "$GITHUB_WORKSPACE/site"
+      - name: Upload preview
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-preview
+          path: site/
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
