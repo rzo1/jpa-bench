@@ -30,15 +30,6 @@ from jpa_bench_viz.validate import validate
 COMMANDS = ("report", "site", "validate", "add-run")
 
 
-def _format(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--format",
-        choices=("svg", "png"),
-        default="svg",
-        help="chart format, inlined into the HTML (default: svg)",
-    )
-
-
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="jpa-bench-viz", description="Reports and site for jpa-bench results."
@@ -48,7 +39,6 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     report = commands.add_parser("report", help="report of one results/<timestamp> directory (the default)")
     report.add_argument("results_dir", type=Path)
     report.add_argument("-o", "--out", type=Path, help="output directory (default: <results-dir>/report)")
-    _format(report)
 
     site = commands.add_parser("site", help="static site of runs/<run-id>/ directories")
     site.add_argument("runs_dir", type=Path)
@@ -56,7 +46,6 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     site.add_argument(
         "--repo-url", default=DEFAULT_REPO_URL, help=f"jpa-bench repository (default: {DEFAULT_REPO_URL})"
     )
-    _format(site)
 
     check = commands.add_parser("validate", help="check run directories; exit 1 on errors")
     check.add_argument("dirs", type=Path, nargs="+", help="run directories, or directories of runs")
@@ -92,7 +81,7 @@ def _report(args: argparse.Namespace) -> int:
         print(f"jpa-bench-viz: no JMH results (*.json) in {args.results_dir}", file=sys.stderr)
         return 1
     out = args.out if args.out is not None else args.results_dir / "report"
-    report = build_report(results, out, args.format)
+    report = build_report(results, out)
     print(f"{len(results.scores)} results of {len(results.runners)} runners -> {report}")
     return 0
 
@@ -100,7 +89,7 @@ def _report(args: argparse.Namespace) -> int:
 def _site(args: argparse.Namespace) -> int:
     if not args.runs_dir.is_dir():
         raise FileNotFoundError(f"not a directory: {args.runs_dir}")
-    runs = build_site(args.runs_dir, args.out, args.format, args.repo_url)
+    runs = build_site(args.runs_dir, args.out, args.repo_url)
     print(f"{len(runs)} runs -> {args.out / 'index.html'}")
     return 0
 

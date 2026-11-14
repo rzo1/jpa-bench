@@ -83,24 +83,44 @@
 </details>
 {% endif %}
 
+{% macro bars(chart) %}
+<h4>{{ chart.title }} <span class="note">({{ chart.unit }}, {{ chart.better }})</span></h4>
+<div class="bars" role="list">
+  {% for r in chart.rows %}
+  {% if r.sql %}<a class="name" href="#{{ r.sql }}" role="listitem">{% else %}<span class="name" role="listitem">{% endif %}<span class="swatch {{ r.css }}" aria-hidden="true"></span>{{ r.label }}{% if r.sql %}</a>{% else %}</span>{% endif %}
+  <div class="track {{ r.css }}" title="{{ r.label }}: {{ r.score }} ± {{ r.error }} {{ chart.unit }}" aria-hidden="true">
+    <div class="fill" style="width: {{ '%.2f' | format(r.width) }}%"></div>
+    {% if r.err_width > 0 %}<div class="errbar" style="left: {{ '%.2f' | format(r.err_left) }}%; width: {{ '%.2f' | format(r.err_width) }}%"></div>{% endif %}
+  </div>
+  <span class="val">{% if r.best %}<strong>{{ r.score | num }}</strong>{% else %}{{ r.score | num }}{% endif %} <span class="err">± {{ r.error | num }}</span><span class="rel">{% if r.best %}fastest{% elif r.tie %}≈ {{ r.factor | factor }}{% else %}{{ r.factor | factor }}{% endif %}</span></span>
+  {% endfor %}
+</div>
+{% endmacro %}
+
 {% for s in sections %}
 <h2 id="{{ s.anchor }}">{{ s.title }}</h2>
 
-{% for c in s.overview %}{{ chart(c) }}{% endfor %}
-
+{% if s.single %}
+{% set b = s.benchmarks[0] %}
+<div class="card" id="{{ b.anchor }}">
+  {% for chart in b.bars %}{{ bars(chart) }}{% endfor %}
+  <p class="legend">Bar: score, line: ± error; number: factor to the fastest, ≈: within error of the fastest.</p>
+</div>
+{% else %}
 {% for t in s.score_tables %}
-<h3>{{ t.title }} <span class="note">({{ t.unit }}, {{ t.better }}; factor = relative to the fastest)</span></h3>
+<h3>{{ t.title }}: factor to the fastest <span class="note">({{ t.unit }}, {{ t.better }})</span></h3>
+<p class="legend">1.00 = fastest (bold frame); ≈ and thin frame: score ± error overlaps the fastest; darker = faster.</p>
 <div class="scroll card">
-<table>
-  <thead><tr><th>Benchmark</th>{% for r in t.runners %}<th>{{ labels[r] }}</th>{% endfor %}</tr></thead>
+<table class="heat">
+  <thead><tr><th>Benchmark</th>{% for r in t.runners %}<th class="runner"><span class="swatch {{ classes[r] }}" aria-hidden="true"></span>{{ labels[r] }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for row in t.rows %}
   <tr>
-    <td>{{ row.benchmark }}</td>
+    <td><a href="#{{ row.anchor }}">{{ row.benchmark }}</a></td>
     {% for cell in row.cells %}
     {% if cell %}
-    <td class="{{ 'best' if cell.best }}">{{ cell.score | num }} <span class="err">± {{ cell.error | num }}</span><br><span class="rel">{{ cell.relative | num }}</span></td>
-    {% else %}<td class="err">n/a</td>{% endif %}
+    <td class="cell heat-{{ cell.level }}{{ ' best' if cell.best }}{{ ' tie' if cell.tie }}" title="{{ labels[t.runners[loop.index0]] }}: {{ cell.score }} ± {{ cell.error }} {{ t.unit }}">{% if cell.tie %}≈ {% endif %}{{ cell.relative | factor }}</td>
+    {% else %}<td class="cell err">n/a</td>{% endif %}
     {% endfor %}
   </tr>
   {% endfor %}
@@ -108,11 +128,60 @@
 </table>
 </div>
 {% endfor %}
+{% endif %}
 
-{% if s.statements or s.sql_shape %}
+<details>
+  <summary>Scores ({{ s.score_tables | map(attribute='title') | join(', ') }})</summary>
+  {% for t in s.score_tables %}
+  <h3>{{ t.title }} <span class="note">({{ t.unit }}, {{ t.better }})</span></h3>
+  <p class="legend">Score ± error, factor to the fastest below. Bold frame: fastest; thin frame and ≈: within error of the fastest.</p>
+  <div class="scroll card">
+  <table>
+    <thead><tr><th>Benchmark</th>{% for r in t.runners %}<th>{{ labels[r] }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in t.rows %}
+    <tr>
+      <td>{{ row.benchmark }}</td>
+      {% for cell in row.cells %}
+      {% if cell %}
+      <td class="{{ 'best' if cell.best }}{{ 'tie' if cell.tie }}">{{ cell.score | num }} <span class="err">± {{ cell.error | num }}</span><br><span class="rel">{% if cell.tie %}≈ {% endif %}{{ cell.relative | factor }}</span></td>
+      {% else %}<td class="err">n/a</td>{% endif %}
+      {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endfor %}
+</details>
+
+{% if s.statements %}
 <h3>Statements per operation</h3>
-{{ chart(s.statements) }}
-{{ chart(s.sql_shape) }}
+<p class="legend">
+  Stacked by kind:
+  <span class="swatch kind-select" aria-hidden="true"></span>SELECT
+  <span class="swatch kind-insert" aria-hidden="true"></span>INSERT
+  <span class="swatch kind-update" aria-hidden="true"></span>UPDATE
+  <span class="swatch kind-delete" aria-hidden="true"></span>DELETE
+  <span class="swatch kind-other" aria-hidden="true"></span>other.
+  Numbers: statements, JDBC executions, batches, SQL characters per operation.
+</p>
+<div class="grid">
+{% for c in s.statements %}
+<div class="card">
+  <h4>{{ c.benchmark }}</h4>
+  <div class="bars stmts" role="list">
+    {% for r in c.rows %}
+    <span class="name" role="listitem"><span class="swatch {{ r.css }}" aria-hidden="true"></span>{{ r.label }}</span>
+    <div class="stack" aria-hidden="true">
+      {% for seg in r.segments %}<span class="{{ seg.css }}" style="width: {{ '%.2f' | format(seg.width) }}%" title="{{ seg.kind }}: {{ seg.value | num }}"></span>{% endfor %}
+    </div>
+    <span class="val" title="{% for seg in r.segments %}{{ seg.kind }} {{ seg.value | qty }}{% if not loop.last %}, {% endif %}{% endfor %}">{{ r.total | qty }} stmts<br><span class="err">{{ r.executions | qty }} exec · {{ r.batches | qty }} batches · {{ r.chars | count }} chars</span></span>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+</div>
 {% endif %}
 {% if s.statement_rows %}
 <details>
@@ -128,14 +197,17 @@
 </details>
 {% endif %}
 
+{% set listed = s.benchmarks | selectattr("sql") | list if s.single else s.benchmarks %}
+{% if listed %}
 <h3>Per benchmark</h3>
-{% for b in s.benchmarks %}
-<details>
+{% endif %}
+{% for b in listed %}
+<details id="{{ b.anchor if not s.single else b.anchor ~ '-sql' }}">
   <summary>{{ b.name }}</summary>
-  {{ chart(b.chart) }}
-  {% for runner, sql in b.sql %}
-  <div><strong>{{ labels[runner] }}</strong>: distinct SQL of the first iteration</div>
-  <pre class="sql">{{ sql }}</pre>
+  {% if not s.single %}{% for chart in b.bars %}{{ bars(chart) }}{% endfor %}{% endif %}
+  {% for q in b.sql %}
+  <div id="{{ q.anchor }}"><strong>{{ q.label }}</strong>: distinct SQL of the first iteration</div>
+  <pre class="sql">{{ q.text }}</pre>
   {% endfor %}
 </details>
 {% endfor %}

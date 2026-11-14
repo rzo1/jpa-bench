@@ -384,7 +384,29 @@ def _add_relative(scores: pd.DataFrame) -> pd.DataFrame:
         relative_error.append(rel_err)
     scores["relative"] = relative
     scores["relative_error"] = relative_error
+    scores["best"] = scores["relative"] == 1.0
+    scores["tie"] = False
+    for _, group in scores.groupby(keys):
+        flags = ties(list(group["score"]), list(group["error"]), group["mode"].iloc[0] in HIGHER_IS_BETTER)
+        scores.loc[group.index, "tie"] = flags
     return scores
+
+
+def ties(scores: list[float], errors: list[float], higher_is_better: bool) -> list[bool]:
+    """True where ``score ± error`` overlaps the interval of the best score (the best itself included)."""
+    valid = [i for i, s in enumerate(scores) if s and not math.isnan(s)]
+    if not valid:
+        return [False] * len(scores)
+    pick = max if higher_is_better else min
+    best = pick(valid, key=lambda i: scores[i])
+
+    def err(i: int) -> float:
+        return 0.0 if math.isnan(errors[i]) else abs(errors[i])
+
+    low, high = scores[best] - err(best), scores[best] + err(best)
+    return [
+        i in valid and scores[i] - err(i) <= high and scores[i] + err(i) >= low for i in range(len(scores))
+    ]
 
 
 def statement_table(metrics: pd.DataFrame) -> pd.DataFrame:

@@ -1,14 +1,14 @@
 # bench-viz
 
-Charts, HTML reports and the results site for `run.sh` results. Python 3.12+, [uv](https://docs.astral.sh/uv/),
-pandas, matplotlib, Jinja2; ruff and pytest.
+HTML reports, the results site and run validation for `run.sh` results. Python 3.12+,
+[uv](https://docs.astral.sh/uv/), pandas, Jinja2; ruff and pytest. Charts are plain HTML and CSS, no JavaScript.
 
 ## Commands
 
 ```bash
 cd bench-viz
 uv run jpa-bench-viz ../results/<timestamp>                 # report in ../results/<timestamp>/report/
-uv run jpa-bench-viz ../results/<timestamp> -o /tmp/r --format png
+uv run jpa-bench-viz ../results/<timestamp> -o /tmp/r
 uv run jpa-bench-viz add-run ../results/<timestamp> <runs-dir> [--contributor HANDLE] [--machine LABEL]
 uv run jpa-bench-viz validate <run-dir or runs-dir> [--submission]
 uv run jpa-bench-viz site <runs-dir> -o <site-dir>
@@ -16,12 +16,12 @@ uv run jpa-bench-viz site <runs-dir> -o <site-dir>
 
 | Command | Does |
 |---|---|
-| `report` (default) | one self-contained `index.html` (charts inlined), `charts/`, `scores.csv`, `statements.csv` |
+| `report` (default) | one self-contained `index.html`, `scores.csv`, `statements.csv` |
 | `add-run` | copies a run to `<runs-dir>/<yyyy-mm-dd>-<machine>-<contributor>/`, gzips `logs/`, skips `report/` |
 | `validate` | exit 1 on errors: metadata and required fields, empty or broken JSON, failed or missing jobs, verification mismatches, dataset checksum not the reference. `--submission` also checks the directory name, gzipped logs, no `report/`, size below 50 MB |
 | `site` | `index.html` (all runs, smoke and reduced runs separate), `datasets.html`, `runs/<run-id>/index.html` |
 
-The site has no external resources: CSS and charts are inline, links are relative. It works from `file://`.
+The site has no external resources: CSS is inline, links are relative. It works from `file://`.
 
 ## Report
 
@@ -32,11 +32,16 @@ OpenJPA snapshot build and revision. Smoke runs (`run.sh --smoke`, or 1 fork and
 
 Then per database and dataset (and per database for `emfBootstrap` warm and cold start):
 
-- relative overview per JMH mode, normalized to the fastest provider (1.0); throughput `score / best`, time
-  modes `best / score`;
-- score tables (absolute score ± error, factor to the fastest);
-- statements per operation by kind, JDBC round trips, SQL characters, longest SELECT, joined tables;
-- per benchmark the scores and the distinct SQL of the first iteration per provider.
+- heatmap per JMH mode, benchmark x provider: factor to the fastest (1.0); throughput `score / best`, time
+  modes `best / score`. Fastest: bold frame; tie (`≈`, thin frame): `score ± error` overlaps the fastest's
+  interval. One benchmark (`emfBootstrap`): bars instead;
+- score tables (score ± error, factor; same best and tie marks);
+- statements per operation: stacked bar by kind per provider, JDBC executions, batches, SQL characters;
+- per benchmark: one bar per provider and mode (width relative to the largest `score + error`, error line,
+  factor, exact value as tooltip), linked to the distinct SQL of the first iteration per provider.
+
+Each runner has a fixed colour (`--series-N` CSS variables in `KNOWN_RUNNERS` order, light and dark variant);
+the `-agent` runners use the colour of their build-time runner, striped.
 
 Labels name the enhancement mode from `bench.provider.enhancement`, e.g. `EclipseLink 5.0.2 (not woven)`.
 
@@ -50,7 +55,6 @@ How the numbers are read:
 - Per-operation metric = mean of the secondary metric's `rawData` (JMH sums `EVENTS` counters in `score`).
 - Statement metrics come from the throughput run, else the average time run.
 - `scoreError` `NaN` (one iteration) is shown as 0.
-- Runner colours follow `KNOWN_RUNNERS` in `results.py`, regardless of rank.
 
 ## Datasets
 

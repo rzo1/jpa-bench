@@ -31,9 +31,7 @@ def run_dirs(runs_dir: Path) -> list[Path]:
     return sorted(p for p in runs_dir.iterdir() if p.is_dir() and (p / "metadata.json").is_file())
 
 
-def build_site(
-    runs_dir: Path, out_dir: Path, image_format: str = "svg", repo_url: str = DEFAULT_REPO_URL
-) -> list[RunInfo]:
+def build_site(runs_dir: Path, out_dir: Path, repo_url: str = DEFAULT_REPO_URL) -> list[RunInfo]:
     """Renders every run of ``runs_dir`` plus the index and the dataset page; returns the runs."""
     out_dir.mkdir(parents=True, exist_ok=True)
     runs: list[RunInfo] = []
@@ -47,7 +45,6 @@ def build_site(
         build_report(
             results,
             target,
-            image_format,
             links={"index": "../../index.html", "datasets": "../../datasets.html"},
             repo_url=repo_url,
         )

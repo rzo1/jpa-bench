@@ -15,14 +15,13 @@
 [project]
 name = "jpa-bench-viz"
 version = "0.1.0"
-description = "Charts and a static HTML report for jpa-bench (JMH) results"
+description = "HTML reports, results site and run validation for jpa-bench (JMH) results"
 readme = "README.md"
 license = "Apache-2.0"
 authors = [{ name = "the jpa-bench authors" }]
 requires-python = ">=3.12"
 dependencies = [
     "jinja2>=3.1.6",
-    "matplotlib>=3.11.2",
     "pandas>=3.1.1",
 ]
 

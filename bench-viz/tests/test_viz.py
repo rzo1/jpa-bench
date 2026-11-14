@@ -23,6 +23,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from jpa_bench_viz.bars import heat_level, runner_class, score_bars
 from jpa_bench_viz.cli import main
 from jpa_bench_viz.results import (
     load,
@@ -30,6 +31,7 @@ from jpa_bench_viz.results import (
     scope_label,
     sql_file_name,
     statement_table,
+    ties,
     verification_mismatches,
 )
 
@@ -120,25 +122,23 @@ def test_sql_file_name_matches_bench_core() -> None:
     ).is_file()
 
 
-@pytest.mark.parametrize("image_format", ["svg", "png"])
-def test_cli_writes_a_self_contained_report(tmp_path: Path, image_format: str) -> None:
+def test_cli_writes_a_self_contained_report(tmp_path: Path) -> None:
     out = tmp_path / "report"
-    assert main([str(FIXTURE), "--out", str(out), "--format", image_format]) == 0
+    assert main([str(FIXTURE), "--out", str(out)]) == 0
     html = (out / "index.html").read_text(encoding="utf-8")
     assert "Hibernate ORM 7.4.15.Final" in html
     assert "Apache OpenJPA 4.2.0-SNAPSHOT" in html
     assert "findById" in html and "persistBatch" in html and "emfBootstrap" in html
-    # the distinct SQL sidecar of findById is embedded
+    # the distinct SQL sidecar of findById is embedded, the bar links to it
     assert "select" in html.lower()
-    if image_format == "svg":
-        assert "<svg" in html
-    else:
-        assert "data:image/png;base64," in html
-    charts = {p.name for p in (out / "charts").iterdir()}
-    assert f"relative-h2-S-thrpt.{image_format}" in charts
-    assert f"statements-h2-S.{image_format}" in charts
-    assert f"sql-shape-h2-S.{image_format}" in charts
-    assert f"score-h2-bootstrap-emfBootstrap.{image_format}" in charts
+    assert 'href="#sql-h2-S-findbyid-hibernate-7"' in html and 'id="sql-h2-S-findbyid-hibernate-7"' in html
+    # heatmap, bars and statement bars are HTML, no images
+    assert '<table class="heat">' in html
+    assert 'class="track runner-hibernate-7"' in html
+    assert 'class="stack"' in html and "kind-insert" in html
+    assert "<svg" not in html and "<img" not in html
+    assert ".runner-openjpa-4-1-agent { --c: var(--series-1); }" in html
+    assert not (out / "charts").exists()
     assert (out / "scores.csv").is_file()
     assert (out / "statements.csv").is_file()
 
@@ -257,3 +257,40 @@ def test_single_shot_batches_are_reported_per_operation(tmp_path: Path) -> None:
     scores = load(run).scores
     row = scores[(scores["runner"] == "runner-hibernate-7") & (scores["dataset"] == "bootstrap")]
     assert float(row["score"].iloc[0]) == pytest.approx(single)
+
+
+def test_ties_overlap_the_interval_of_the_best() -> None:
+    nan = math.nan
+    # throughput: best 100 ± 5 -> [95, 105]
+    assert ties([100, 96, 90, 80], [5, 2, 4, 1], True) == [True, True, False, False]
+    assert ties([100, 92, 90], [5, 3, 0], True) == [True, True, False]
+    # time: best is the lowest, 10 ± 1 -> [9, 11]
+    assert ties([10, 11.5, 12, 30], [1, 0.6, 0.5, nan], False) == [True, True, False, False]
+    # no error estimate (smoke): only equal scores tie
+    assert ties([5, 5, 6], [nan, nan, nan], False) == [True, True, False]
+    assert ties([nan, 0], [0, 0], True) == [False, False]
+
+
+def test_scores_carry_best_and_tie() -> None:
+    scores = load(FIXTURE).scores
+    for _, group in scores.groupby(["db", "dataset", "benchmark", "mode"]):
+        assert group["best"].sum() == 1
+        assert (group["tie"] | ~group["best"]).all()
+
+
+def test_heat_levels_and_runner_classes() -> None:
+    assert [heat_level(f) for f in (1.0, 0.95, 0.9, 0.7, 0.5, 0.3, 0.1)] == [5, 5, 4, 3, 2, 1, 0]
+    assert heat_level(math.nan) == -1
+    assert runner_class("runner-openjpa-4.1-agent") == "runner-openjpa-4-1-agent"
+    assert runner_class("runner-unknown") == "runner-other"
+
+
+def test_score_bars_scale_to_the_largest_value() -> None:
+    scores = load(FIXTURE).scores
+    frame = scores[(scores["benchmark"] == "findById") & (scores["mode"] == "thrpt")]
+    chart = score_bars(frame, ["runner-openjpa-4.2", "runner-hibernate-7"], {}, "h2-S")
+    assert chart["better"] == "higher is better"
+    widths = {r["runner"]: r["width"] for r in chart["rows"]}
+    assert widths["runner-hibernate-7"] == pytest.approx(100.0)
+    assert 0 < widths["runner-openjpa-4.2"] < 100
+    assert chart["rows"][1]["sql"] == "sql-h2-S-findbyid-hibernate-7"

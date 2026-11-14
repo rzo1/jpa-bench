@@ -11,11 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Builds the charts and the static HTML report of one results directory."""
+"""Static HTML report of one results directory; charts are plain HTML and CSS."""
 
 from __future__ import annotations
 
-import base64
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,9 +22,16 @@ from typing import Any
 
 import pandas as pd
 from jinja2 import Environment, PackageLoader, select_autoescape
-from markupsafe import Markup
 
-from jpa_bench_viz import charts
+from jpa_bench_viz.bars import (
+    RUNNER_SLOTS,
+    heat_level,
+    runner_class,
+    score_bars,
+    slug,
+    sql_anchor,
+    statement_bars,
+)
 from jpa_bench_viz.results import (
     DATASET_ORDER,
     DB_LABELS,
@@ -60,8 +66,9 @@ STATEMENT_COLUMNS: tuple[str, ...] = (
 @dataclass
 class BenchmarkSection:
     name: str
-    chart: charts.Chart | None
-    sql: list[tuple[str, str]] = field(default_factory=list)
+    anchor: str
+    bars: list[dict[str, Any]] = field(default_factory=list)
+    sql: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -70,12 +77,15 @@ class DatasetSection:
     dataset: str
     title: str
     anchor: str
-    overview: list[charts.Chart] = field(default_factory=list)
     score_tables: list[dict[str, Any]] = field(default_factory=list)
-    statements: charts.Chart | None = None
-    sql_shape: charts.Chart | None = None
+    statements: list[dict[str, Any]] = field(default_factory=list)
     statement_rows: list[dict[str, Any]] = field(default_factory=list)
     benchmarks: list[BenchmarkSection] = field(default_factory=list)
+
+    @property
+    def single(self) -> bool:
+        """One benchmark (emfBootstrap): bars instead of a heatmap."""
+        return len(self.benchmarks) == 1
 
 
 def format_number(value: Any) -> str:
@@ -107,22 +117,23 @@ def environment() -> Environment:
     )
     env.filters["num"] = format_number
     env.filters["count"] = lambda n: f"{int(n):,}"
+    env.filters["qty"] = lambda v: f"{v:,.2f}".rstrip("0").rstrip(".")
+    env.filters["factor"] = lambda f: "n/a" if f is None or math.isnan(f) else f"{f:.2f}"
+    env.globals["runner_slots"] = {runner_class(r): slot for r, slot in RUNNER_SLOTS.items()}
     return env
 
 
 def build_report(
     results: Results,
     out_dir: Path,
-    image_format: str = "svg",
     links: dict[str, str] | None = None,
     repo_url: str = DEFAULT_REPO_URL,
 ) -> Path:
-    """Writes charts, CSV exports and ``index.html`` into ``out_dir``; returns the path of the report.
+    """Writes ``index.html``, ``scores.csv`` and ``statements.csv`` into ``out_dir``; returns the report.
 
     ``links`` (``index``, ``datasets``) are the relative URLs of the site pages, None for a standalone report.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    writer = charts.ChartWriter(out_dir / "charts", image_format)
     scores = results.scores
     labels = {r: results.provider_label(r) for r in results.runners}
     table = statement_table(results.metrics)
@@ -136,10 +147,9 @@ def build_report(
     dbs = ordered(set(scores["db"]), KNOWN_DBS) if not scores.empty else []
     for db in dbs:
         for dataset in ordered(set(scores[scores["db"] == db]["dataset"]), DATASET_ORDER):
-            sections.append(_dataset_section(results, writer, table, labels, db, dataset))
+            sections.append(_dataset_section(results, table, labels, db, dataset))
 
     env = environment()
-    env.globals["chart"] = lambda c: _embed(c, out_dir)
     html = env.get_template("report.html.j2").render(
         run=summarize(results.directory),
         links=links,
@@ -149,6 +159,7 @@ def build_report(
         directory=results.directory,
         runners=results.runners,
         labels=labels,
+        classes={r: runner_class(r) for r in results.runners},
         providers=_providers(results),
         sections=sections,
         statement_columns=[(c, METRIC_LABELS.get(c, c)) for c in STATEMENT_COLUMNS],
@@ -158,20 +169,6 @@ def build_report(
     report = out_dir / "index.html"
     report.write_text(html, encoding="utf-8")
     return report
-
-
-def _embed(chart: charts.Chart | None, out_dir: Path) -> Markup:
-    """Inline SVG, or a PNG as data URI, so ``index.html`` is a single self-contained file."""
-    if chart is None:
-        return Markup("")
-    if chart.inline:
-        return Markup('<figure class="chart" role="img" aria-label="{}">{}</figure>').format(
-            chart.alt, Markup(chart.inline)
-        )
-    data = base64.b64encode(chart.path.read_bytes()).decode("ascii")
-    return Markup('<figure class="chart"><img alt="{}" src="data:image/png;base64,{}"></figure>').format(
-        chart.alt, data
-    )
 
 
 def _verification(results: Results) -> dict[str, Any] | None:
@@ -215,7 +212,6 @@ def _providers(results: Results) -> list[dict[str, Any]]:
 
 def _dataset_section(
     results: Results,
-    writer: charts.ChartWriter,
     table: pd.DataFrame,
     labels: dict[str, str],
     db: str,
@@ -223,23 +219,21 @@ def _dataset_section(
 ) -> DatasetSection:
     scores = results.scores
     frame = scores[(scores["db"] == db) & (scores["dataset"] == dataset)]
-    title = scope_label(db, dataset)
-    section = DatasetSection(db=db, dataset=dataset, title=title, anchor=f"{db}-{dataset}")
+    anchor = f"{db}-{dataset}"
+    section = DatasetSection(db=db, dataset=dataset, title=scope_label(db, dataset), anchor=anchor)
     modes = ordered(set(frame["mode"]), ("thrpt", "avgt", "ss", "sample"))
     benchmarks = sorted(frame["benchmark"].unique())
     runners = [r for r in results.runners if r in set(frame["runner"])]
 
     for mode in modes:
-        if len(benchmarks) > 1:
-            chart = charts.relative_overview(writer, scores, db, dataset, mode, results.runners, labels)
-            if chart is not None:
-                section.overview.append(chart)
-        section.score_tables.append(_score_table(frame[frame["mode"] == mode], mode, benchmarks, runners))
+        section.score_tables.append(
+            _score_table(frame[frame["mode"] == mode], mode, benchmarks, runners, anchor)
+        )
 
     if not table.empty:
-        section.statements = charts.statements_per_op(writer, table, db, dataset, results.runners, labels)
-        section.sql_shape = charts.sql_shape(writer, table, db, dataset, results.runners, labels)
         part = table[(table["db"] == db) & (table["dataset"] == dataset)]
+        if not part.empty:
+            section.statements = statement_bars(part, runners, labels)
         for benchmark in benchmarks:
             for runner in runners:
                 rows = part[(part["benchmark"] == benchmark) & (part["runner"] == runner)]
@@ -255,16 +249,30 @@ def _dataset_section(
                 )
 
     for benchmark in benchmarks:
-        chart = charts.benchmark_scores(writer, scores, db, dataset, benchmark, results.runners, labels)
+        rows = frame[frame["benchmark"] == benchmark]
+        sql = _sql_texts(results, frame, benchmark, runners, labels, anchor)
+        bars = [
+            score_bars(rows[rows["mode"] == m], runners, labels, anchor)
+            for m in modes
+            if m in set(rows["mode"])
+        ]
+        # link a bar to its SQL only if there is SQL
+        with_sql = {q["anchor"] for q in sql}
+        for chart in bars:
+            for row in chart["rows"]:
+                if row["sql"] not in with_sql:
+                    row["sql"] = ""
         section.benchmarks.append(
-            BenchmarkSection(name=benchmark, chart=chart, sql=_sql_texts(results, frame, benchmark, runners))
+            BenchmarkSection(name=benchmark, anchor=f"{anchor}-{slug(benchmark)}", bars=bars, sql=sql)
         )
     return section
 
 
-def _score_table(frame: pd.DataFrame, mode: str, benchmarks: list[str], runners: list[str]) -> dict[str, Any]:
+def _score_table(
+    frame: pd.DataFrame, mode: str, benchmarks: list[str], runners: list[str], section: str
+) -> dict[str, Any]:
     rows = []
-    for benchmark in benchmarks:
+    for benchmark in [b for b in benchmarks if b in set(frame["benchmark"])]:
         cells = []
         for runner in runners:
             match = frame[(frame["benchmark"] == benchmark) & (frame["runner"] == runner)]
@@ -277,10 +285,12 @@ def _score_table(frame: pd.DataFrame, mode: str, benchmarks: list[str], runners:
                     "score": row["score"],
                     "error": row["error"],
                     "relative": row["relative"],
-                    "best": bool(row["relative"] == 1.0),
+                    "level": heat_level(row["relative"]),
+                    "best": bool(row["best"]),
+                    "tie": bool(row["tie"]) and not bool(row["best"]),
                 }
             )
-        rows.append({"benchmark": benchmark, "cells": cells})
+        rows.append({"benchmark": benchmark, "anchor": f"{section}-{slug(benchmark)}", "cells": cells})
     unit = frame["unit"].iloc[0] if not frame.empty else ""
     better = "higher is better" if mode in HIGHER_IS_BETTER else "lower is better"
     return {
@@ -294,8 +304,13 @@ def _score_table(frame: pd.DataFrame, mode: str, benchmarks: list[str], runners:
 
 
 def _sql_texts(
-    results: Results, frame: pd.DataFrame, benchmark: str, runners: list[str]
-) -> list[tuple[str, str]]:
+    results: Results,
+    frame: pd.DataFrame,
+    benchmark: str,
+    runners: list[str],
+    labels: dict[str, str],
+    section: str,
+) -> list[dict[str, str]]:
     """Distinct SQL of the first iteration per runner (throughput run preferred, any mode otherwise)."""
     texts = []
     for runner in runners:
@@ -304,7 +319,14 @@ def _sql_texts(
         for _, row in rows.iterrows():
             path = results.sql_dir(runner, row["db"], _file_dataset(row)) / row["sql_file"]
             if path.is_file():
-                texts.append((runner, path.read_text(encoding="utf-8").strip()))
+                texts.append(
+                    {
+                        "runner": runner,
+                        "label": labels.get(runner, runner),
+                        "anchor": sql_anchor(section, benchmark, runner),
+                        "text": path.read_text(encoding="utf-8").strip(),
+                    }
+                )
                 break
     return texts
 
