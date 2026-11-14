@@ -1,8 +1,8 @@
 # Equivalent provider settings
 
-Every run combines `bench-core/src/main/resources/bench-common.properties` (identical for all runners) with the
-runner's `src/main/resources/bench-provider.properties`. `bench.*` keys configure the harness and are never
-passed to the provider; `db.<id>.<key>` applies to one database only; `${key}` references another setting.
+Each run merges `bench-core/src/main/resources/bench-common.properties` (all runners) with the runner's
+`src/main/resources/bench-provider.properties`. `bench.*` keys configure the harness and are not passed to the
+provider; `db.<id>.<key>` applies to one database only; `${key}` references another setting.
 `java -cp <runner>/target/benchmarks.jar io.github.rzo1.jpabench.core.ProviderInfo <db>` prints the resolved
 settings; run.sh stores them in `metadata.json`.
 
@@ -28,9 +28,9 @@ settings; run.sh stores them in `metadata.json`.
 | provider class | `org.hibernate.jpa.HibernatePersistenceProvider` | `org.hibernate.jpa.HibernatePersistenceProvider` | `org.apache.openjpa.persistence.PersistenceProviderImpl` | `org.eclipse.persistence.jpa.PersistenceProvider` |
 | DataSource object | `jakarta.persistence.nonJtaDataSource` | `jakarta.persistence.nonJtaDataSource` | `openjpa.ConnectionFactory` (`nonJtaDataSource` is a JNDI name for OpenJPA; `ConnectionFactory2` unset, falls back to the same pool) | `jakarta.persistence.nonJtaDataSource` (used as an external pool) |
 | no schema generation / validation | `hibernate.hbm2ddl.auto=none` | `hibernate.hbm2ddl.auto=none` | no `openjpa.jdbc.SynchronizeMappings`; default `dynamic` schema factory (does not read the schema) | `eclipselink.ddl-generation=none` |
-| no provider helper tables | `hibernate.query.mutation_strategy.global_temporary.create_tables=false`, `...drop_tables=false` | same keys as 7 (`hibernate.query.mutation_strategy.global_temporary.create_tables=false`, `...drop_tables=false`) | none needed (application-assigned ids, no sequence table) | none needed (application-assigned ids, no sequence table) |
+| no provider helper tables | `hibernate.query.mutation_strategy.global_temporary.create_tables=false`, `...drop_tables=false` | same as 7 | none needed (application-assigned ids, no sequence table) | none needed (application-assigned ids, no sequence table) |
 | JDBC batch size 50 | `hibernate.jdbc.batch_size=${bench.jdbc.batchSize}` | `hibernate.jdbc.batch_size=${bench.jdbc.batchSize}` | `openjpa.jdbc.DBDictionary=batchLimit=${bench.jdbc.batchSize}` (dictionary auto-detected) | `eclipselink.jdbc.batch-writing=JDBC`, `eclipselink.jdbc.batch-writing.size=${bench.jdbc.batchSize}` |
-| ordered inserts / updates | `hibernate.order_inserts=true`, `hibernate.order_updates=true` | `hibernate.order_inserts=true`, `hibernate.order_updates=true` | default `batching-constraint` update manager orders by FK; `openjpa.jdbc.MappingDefaults=ForeignKeyDeleteAction=restrict, JoinForeignKeyDeleteAction=restrict` declares the DDL's FKs logically (without it inserts/deletes are not batched across orders) | `eclipselink.order-updates=true`, `eclipselink.persistence-context.commit-order=ID` (statements of a commit are always grouped by table in dependency order) |
+| ordered inserts / updates | `hibernate.order_inserts=true`, `hibernate.order_updates=true` | `hibernate.order_inserts=true`, `hibernate.order_updates=true` | default `batching-constraint` update manager orders by FK; `openjpa.jdbc.MappingDefaults=ForeignKeyDeleteAction=restrict, JoinForeignKeyDeleteAction=restrict` declares the DDL's FKs (see below) | `eclipselink.order-updates=true`, `eclipselink.persistence-context.commit-order=ID` (statements of a commit are always grouped by table in dependency order) |
 | batch versioned updates | `hibernate.jdbc.batch_versioned_data=true` | `hibernate.jdbc.batch_versioned_data=true` | default (versioned updates are batched) | default (versioned updates are batched; only changed columns are updated, so different column sets break a batch) |
 | no L2 cache | `hibernate.cache.use_second_level_cache=false` | `hibernate.cache.use_second_level_cache=false` | `openjpa.DataCache=false` | `eclipselink.cache.shared.default=false` |
 | no query cache | `hibernate.cache.use_query_cache=false` | `hibernate.cache.use_query_cache=false` | `openjpa.QueryCache=false` | `eclipselink.cache.query-results=false` |
@@ -46,9 +46,9 @@ settings; run.sh stores them in `metadata.json`.
 
 ### OpenJPA: `openjpa.jdbc.MappingDefaults=ForeignKeyDeleteAction=restrict, JoinForeignKeyDeleteAction=restrict`
 
-OpenJPA orders and batches the statements of a flush by the foreign keys it knows; with the default `dynamic`
-schema factory it knows only those declared through the mapping defaults. Measured with the H2 smoke settings
-(per `removeBatch`/`persistBatch` operation of 50 orders with 3 lines each, statement metering on):
+OpenJPA orders and batches a flush by the foreign keys it knows; with the default `dynamic` schema factory these
+are only the ones declared by the mapping defaults. H2 smoke settings, per operation of 50 orders with 3 lines,
+metering on:
 
 | Variant | 4.1.1 `persistBatch` | 4.1.1 `removeBatch` | 4.2.0-SNAPSHOT `removeBatch` |
 |---|---|---|---|
@@ -56,9 +56,7 @@ schema factory it knows only those declared through the mapping defaults. Measur
 | without `MappingDefaults` | 200 INSERTs in **50** batches | 229 SELECTs, 200 DELETEs in **50** batches | 229 SELECTs, 4 batches |
 | `openjpa.jdbc.SchemaFactory=native(ForeignKeys=true)` instead | not measured | not measured | 229 SELECTs, 4 batches, slower (the schema is read) |
 
-The setting therefore does not add SELECTs; without it OpenJPA 4.1 breaks the batches up. The 229 SELECTs of
-`removeBatch` (Hibernate: 51, the query plus one per `lines` collection to cascade the removal) come from
-OpenJPA itself: on delete, `RelationFieldStrategy.delete` fetches the object of every foreign key relation
-(`sm.fetchObjectField`), which loads every referenced `CUSTOMER` and `PRODUCT` row. That is provider behaviour
-and part of what the benchmark measures.
+The setting adds no SELECTs; without it OpenJPA 4.1 does not batch across orders. The 229 SELECTs of
+`removeBatch` (Hibernate: 51) are OpenJPA's own: `RelationFieldStrategy.delete` fetches every related object
+(`sm.fetchObjectField`), loading each referenced `CUSTOMER` and `PRODUCT` row.
 
