@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 from jpa_bench_viz.cli import main
-from jpa_bench_viz.results import load, sql_file_name, statement_table
+from jpa_bench_viz.results import load, sql_file_name, statement_table, verification_mismatches
 
 FIXTURE = Path(__file__).parent / "fixtures" / "run"
 
@@ -149,3 +149,25 @@ def test_relative_is_nan_for_a_zero_score(tmp_path: Path) -> None:
     scores = load(run).scores
     zero = scores[(scores["runner"] == "runner-openjpa-4.2") & (scores["score"] == 0.0)].iloc[0]
     assert math.isnan(zero["relative"])
+
+
+def test_verification_flags_operations_with_different_results(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    shutil.copytree(FIXTURE, run)
+    (run / "verification.tsv").write_text(
+        "runner\tdb\tdataset\toperation\tchecksum\n"
+        "runner-hibernate-7\th2\tS\tfindById\t00000000000000aa\n"
+        "runner-openjpa-4.2\th2\tS\tfindById\t00000000000000aa\n"
+        "runner-hibernate-7\th2\tS\tjoinFetch\t00000000000000bb\n"
+        "runner-openjpa-4.2\th2\tS\tjoinFetch\t00000000000000cc\n",
+        encoding="utf-8",
+    )
+    results = load(run)
+    assert verification_mismatches(results.verification) == {("h2", "S", "joinFetch")}
+    assert main([str(run), "--out", str(tmp_path / "report")]) == 0
+    html = (tmp_path / "report" / "index.html").read_text(encoding="utf-8")
+    assert "1 operation(s) return different results" in html
+    assert (
+        '<tr class="mismatch"><td class="text">H2 (in-memory), dataset S</td><td class="text">joinFetch'
+        in html
+    )

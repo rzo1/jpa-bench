@@ -24,7 +24,8 @@ import org.openjdk.jmh.annotations.TearDown;
 
 /**
  * State of the read benchmarks: the dataset is loaded once per trial with plain JDBC and never modified, the
- * EntityManagerFactory is created once per trial.
+ * EntityManagerFactory is created once per trial. Before the first iteration every read operation runs once with
+ * fixed inputs and its checksum is logged ({@link Verification}); this is neither measured nor counted.
  */
 @State(Scope.Benchmark)
 public class ReadState {
@@ -42,6 +43,7 @@ public class ReadState {
     @Setup(Level.Trial)
     public void setUp() {
         fixture = Fixture.withData(db, dataset);
+        Verification.logReadChecksums(fixture);
     }
 
     @TearDown(Level.Trial)

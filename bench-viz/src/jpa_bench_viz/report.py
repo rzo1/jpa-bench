@@ -37,6 +37,7 @@ from jpa_bench_viz.results import (
     ordered,
     scope_label,
     statement_table,
+    verification_mismatches,
 )
 
 # Columns of the statement table, in display order.
@@ -134,6 +135,7 @@ def build_report(results: Results, out_dir: Path, image_format: str = "svg") -> 
         sections=sections,
         statement_columns=[(c, METRIC_LABELS.get(c, c)) for c in STATEMENT_COLUMNS],
         db_labels=DB_LABELS,
+        verification=_verification(results),
     )
     report = out_dir / "index.html"
     report.write_text(html, encoding="utf-8")
@@ -152,6 +154,29 @@ def _embed(chart: charts.Chart | None, out_dir: Path) -> Markup:
     return Markup('<figure class="chart"><img alt="{}" src="data:image/png;base64,{}"></figure>').format(
         chart.alt, data
     )
+
+
+def _verification(results: Results) -> dict[str, Any] | None:
+    """Result checksums per (db, dataset, operation) and runner; mismatching rows are flagged."""
+    frame = results.verification
+    if frame.empty:
+        return None
+    runners = [r for r in results.runners if r in set(frame["runner"])]
+    runners += sorted(set(frame["runner"]) - set(runners))
+    bad = verification_mismatches(frame)
+    rows = []
+    for (db, dataset, operation), group in frame.groupby(["db", "dataset", "operation"], sort=False):
+        by_runner = group.groupby("runner")["checksum"].apply(lambda c: " / ".join(sorted(c))).to_dict()
+        rows.append(
+            {
+                "scope": scope_label(str(db), str(dataset)),
+                "operation": operation,
+                "checksums": [by_runner.get(r, "") for r in runners],
+                "mismatch": (str(db), str(dataset), str(operation)) in bad,
+            }
+        )
+    rows.sort(key=lambda r: (not r["mismatch"], r["scope"], r["operation"]))
+    return {"runners": runners, "rows": rows, "mismatches": len(bad)}
 
 
 def _providers(results: Results) -> list[dict[str, Any]]:

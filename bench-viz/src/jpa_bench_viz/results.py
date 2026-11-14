@@ -80,6 +80,7 @@ class Results:
     scores: pd.DataFrame
     metrics: pd.DataFrame
     runners: list[str] = field(default_factory=list)
+    verification: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     def provider_label(self, runner: str) -> str:
         return provider_label(self.metadata, runner)
@@ -152,6 +153,29 @@ def load_metadata(directory: Path) -> dict[str, Any]:
         return {}
 
 
+VERIFICATION_COLUMNS = ["runner", "db", "dataset", "operation", "checksum"]
+
+
+def load_verification(directory: Path) -> pd.DataFrame:
+    """Reads ``verification.tsv`` (result checksums of the read operations per runner), if present."""
+    path = directory / "verification.tsv"
+    if not path.is_file():
+        return pd.DataFrame(columns=VERIFICATION_COLUMNS)
+    frame = pd.read_csv(path, sep="\t", dtype=str)
+    missing = [c for c in VERIFICATION_COLUMNS if c not in frame.columns]
+    if missing:
+        return pd.DataFrame(columns=VERIFICATION_COLUMNS)
+    return frame[VERIFICATION_COLUMNS].drop_duplicates()
+
+
+def verification_mismatches(verification: pd.DataFrame) -> set[tuple[str, str, str]]:
+    """The (db, dataset, operation) keys whose checksum is not the same for every runner."""
+    if verification.empty:
+        return set()
+    distinct = verification.groupby(["db", "dataset", "operation"])["checksum"].nunique()
+    return {(str(db), str(ds), str(op)) for (db, ds, op), n in distinct.items() if n > 1}
+
+
 def load(directory: Path | str) -> Results:
     """Reads every JMH result file and ``metadata.json`` of a run directory."""
     directory = Path(directory)
@@ -186,7 +210,14 @@ def load(directory: Path | str) -> Results:
     runners = runner_order(set(scores["runner"]))
     if not scores.empty:
         scores = _add_relative(scores)
-    return Results(directory=directory, metadata=metadata, scores=scores, metrics=metrics, runners=runners)
+    return Results(
+        directory=directory,
+        metadata=metadata,
+        scores=scores,
+        metrics=metrics,
+        runners=runners,
+        verification=load_verification(directory),
+    )
 
 
 _SCORE_COLUMNS = [

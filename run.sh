@@ -22,6 +22,8 @@
 #   results/<timestamp>/<runner>-<db>-bootstrap.json         emfBootstrap, mode ss
 #   results/<timestamp>/sql/<runner>-<db>-<dataset>/*.sql    distinct SQL of the first iteration per benchmark
 #   results/<timestamp>/logs/*.log                           complete JMH console output
+#   results/<timestamp>/verification.tsv                     result checksums of the read operations per runner
+#                                                            (must be equal for all runners of a db/dataset)
 #
 # Run ./run.sh --help for the options.
 
@@ -199,6 +201,25 @@ DOCKER_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || ec
 } > "$OUT/metadata.json"
 log "results go to $OUT"
 
+# --- result verification -------------------------------------------------------------------------
+# Every read trial logs "# jpa-bench: verify <operation>=<checksum>" (fixed inputs, see Verification.java).
+VERIFY="$OUT/verification.tsv"
+printf 'runner\tdb\tdataset\toperation\tchecksum\n' > "$VERIFY"
+
+collect_verification() { # runner db dataset log
+    grep '^# jpa-bench: verify ' "$4" | sed 's/^# jpa-bench: verify //' | sort -u | while IFS='=' read -r op sum; do
+        printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$op" "$sum"
+    done >> "$VERIFY" || true
+}
+
+# Prints "db dataset operation" for every operation whose checksum differs between (or within) runners.
+verification_mismatches() {
+    awk -F'\t' 'NR > 1 {
+        key = $2 " " $3 " " $4
+        if (!((key, $5) in seen)) { seen[key, $5] = 1; distinct[key]++ }
+    } END { for (key in distinct) if (distinct[key] > 1) print key }' "$VERIFY" | sort
+}
+
 # --- benchmark matrix ----------------------------------------------------------------------------
 JMH_COMMON=(-f "$FORKS" -foe true)
 if [ -n "$JVM_ARGS" ]; then
@@ -216,6 +237,7 @@ for runner in $RUNNERS; do
                 -wi "$WARMUP_ITERATIONS" -i "$ITERATIONS" -w "$WARMUP_TIME" -r "$TIME" \
                 -p db="$db" -p dataset="$dataset" \
                 -rf json -rff "$OUT/$name.json" 2>&1 | tee "$OUT/logs/$name.log"
+            collect_verification "$runner" "$db" "$dataset" "$OUT/logs/$name.log"
         done
         if [ "$BOOTSTRAP" = true ]; then
             name="$runner-$db-bootstrap"
@@ -228,5 +250,14 @@ for runner in $RUNNERS; do
         fi
     done
 done
+
+MISMATCHES=$(verification_mismatches)
+if [ -n "$MISMATCHES" ]; then
+    log "WARNING: providers return different results (db dataset operation), see $VERIFY:"
+    echo "$MISMATCHES" | sed 's/^/    /'
+    echo "$MISMATCHES" > "$OUT/verification-mismatches.txt"
+else
+    log "verification: all runners return the same results"
+fi
 
 log "done: $OUT"

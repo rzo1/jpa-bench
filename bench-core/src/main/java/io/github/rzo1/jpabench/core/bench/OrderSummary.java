@@ -19,7 +19,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * DTO filled by a JPQL constructor expression in {@link ReadBenchmarks#dtoProjection}.
+ * DTO filled by a JPQL constructor expression in {@link ReadOperations#dtoProjection}.
  */
 public record OrderSummary(long orderId, String customerLastName, LocalDate orderDate, BigDecimal total) {
 }

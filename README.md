@@ -50,8 +50,12 @@ run.sh            runs the matrix runner x database x dataset
 5. **Equivalent enhancement.** OpenJPA enhances the model at build time (it needs it). Hibernate runs without
    bytecode enhancement and EclipseLink without static weaving by default; both have an optional Maven profile
    to turn it on. The mode is recorded in `metadata.json` (`bench.provider.enhancement`).
-6. **Results are really loaded.** Every benchmark touches the fields and collections the operation is
-   supposed to load and folds them into a checksum consumed by a JMH `Blackhole`.
+6. **Results are really loaded, and they are the same.** Every benchmark touches the fields and collections the
+   operation is supposed to load and folds them into a checksum consumed by a JMH `Blackhole`. Before measuring,
+   every read trial runs each read operation for fixed inputs and logs its checksum
+   (`# jpa-bench: verify <operation>=<checksum>`, see `Verification.java`). run.sh collects them into
+   `verification.tsv` and warns (and writes `verification-mismatches.txt`) when providers return different
+   results; the bench-viz report flags them. Write benchmarks are not verified this way.
 7. **Same JVM conditions.** One `EntityManagerFactory` per fork, forks with `-Xms2g -Xmx2g`
    (`@Fork(jvmArgs)`; `run.sh --jvm-args "..."` replaces them for every runner alike), runs strictly one after
    another.

@@ -19,6 +19,7 @@
   --rule: #e4e3df;
   --accent: #2a78d6;
   --best: #e6f0fb;
+  --bad: #b42318;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -31,6 +32,7 @@
     --rule: #34332f;
     --accent: #3987e5;
     --best: #1c2c40;
+    --bad: #f97066;
   }
 }
 :root[data-theme="dark"] {
@@ -43,6 +45,7 @@
   --rule: #34332f;
   --accent: #3987e5;
   --best: #1c2c40;
+  --bad: #f97066;
 }
 * { box-sizing: border-box; }
 body {
@@ -84,6 +87,7 @@ details { margin: 8px 0; }
 summary { cursor: pointer; color: var(--ink-2); }
 pre.sql { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0 12px; }
 .note { font-size: 13px; color: var(--ink-3); }
+.mismatch, tr.mismatch td { color: var(--bad); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -100,6 +104,7 @@ pre.sql { background: var(--surface); border: 1px solid var(--rule); border-radi
   <ul>
     <li><a href="#environment">Environment</a></li>
     <li><a href="#providers">Providers</a></li>
+    {% if verification %}<li><a href="#verification">Result verification</a></li>{% endif %}
     {% for s in sections %}
     <li><a href="#{{ s.anchor }}">{{ s.title }}</a></li>
     {% endfor %}
@@ -150,6 +155,28 @@ pre.sql { background: var(--surface); border: 1px solid var(--rule); border-radi
   </table></div>
 </details>
 {% endfor %}
+
+{% if verification %}
+<h2 id="verification">Result verification</h2>
+{% if verification.mismatches %}
+<p class="mismatch">{{ verification.mismatches }} operation(s) return different results for different providers: those providers do not do the same work, so their scores are not comparable.</p>
+{% else %}
+<p class="note">Every read operation returned the same result checksum for every provider (fixed inputs, run once per trial before measuring).</p>
+{% endif %}
+<details class="card">
+  <summary>Checksums per operation</summary>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="text">Database, dataset</th><th class="text">Operation</th>{% for r in verification.runners %}<th>{{ labels[r] if r in labels else r }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in verification.rows %}
+    <tr{% if row.mismatch %} class="mismatch"{% endif %}><td class="text">{{ row.scope }}</td><td class="text">{{ row.operation }}</td>{% for c in row.checksums %}<td><code>{{ c }}</code></td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
 
 {% for s in sections %}
 <h2 id="{{ s.anchor }}">{{ s.title }}</h2>
