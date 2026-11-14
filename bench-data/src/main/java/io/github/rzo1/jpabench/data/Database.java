@@ -18,8 +18,8 @@ package io.github.rzo1.jpabench.data;
 import java.util.Locale;
 
 /**
- * The databases a benchmark can run against. The {@link #id()} is the value of the JMH {@code db} parameter and
- * the prefix of database specific provider settings ({@code db.<id>.<key>=<value>}).
+ * Supported databases. {@link #id()} is the JMH {@code db} parameter and the prefix of database specific
+ * settings ({@code db.<id>.<key>}).
  */
 public enum Database {
     H2("h2", "ddl/h2.sql"),

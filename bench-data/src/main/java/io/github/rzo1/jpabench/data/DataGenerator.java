@@ -31,9 +31,8 @@ import io.github.rzo1.jpabench.data.Rows.PersonRow;
 import io.github.rzo1.jpabench.data.Rows.ProductRow;
 
 /**
- * Deterministic generator of the benchmark dataset. All values come from one {@link SplittableRandom} with a
- * fixed seed and are drawn in a fixed order, so the same seed and size always produce the same rows - for every
- * provider, on every machine. Ids are assigned by the application and are dense: {@code 1..n} per table.
+ * Deterministic generator of the benchmark dataset: all values are drawn in a fixed order from one
+ * {@link SplittableRandom}, so seed and size determine the rows. Ids are dense, {@code 1..n} per table.
  */
 public final class DataGenerator {
 
@@ -110,18 +109,18 @@ public final class DataGenerator {
         return size;
     }
 
-    /** The e-mail address of customer {@code id}; unique and derivable so benchmarks can query it. */
+    /** Returns the unique e-mail address of customer {@code id}. */
     public static String customerEmail(long id) {
         return "customer" + id + "@example.com";
     }
 
-    /** The SKU of product {@code id}. */
+    /** Returns the SKU of product {@code id}. */
     public static String productSku(long id) {
         return String.format(Locale.ROOT, "SKU-%08d", id);
     }
 
     /**
-     * Generates the whole dataset and hands every row to {@code visitor}.
+     * Generates the dataset and passes every row to {@code visitor}.
      *
      * @return the checksum of all generated rows
      */
@@ -214,7 +213,7 @@ public final class DataGenerator {
         return STATUSES.getLast();
     }
 
-    /** A price in {@code [minCents, maxCents)} with scale 2. */
+    /** Returns a price in {@code [minCents, maxCents)} with scale 2. */
     public static BigDecimal cents(SplittableRandom random, int minCents, int maxCents) {
         return BigDecimal.valueOf(minCents + random.nextInt(maxCents - minCents), 2);
     }
@@ -223,7 +222,7 @@ public final class DataGenerator {
         return values.get(random.nextInt(values.size()));
     }
 
-    /** {@code count} distinct indexes out of {@code [0, bound)}, sorted ascending. */
+    /** Returns {@code count} distinct indexes of {@code [0, bound)}, sorted. */
     private static TreeSet<Integer> distinct(SplittableRandom random, int count, int bound) {
         TreeSet<Integer> result = new TreeSet<>();
         while (result.size() < count) {

@@ -25,8 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Plain JDBC helpers that put the ORDERS and ORDER_LINE tables back into their loaded state between iterations of
- * write benchmarks. None of this goes through a JPA provider and none of it is measured.
+ * Plain JDBC helpers that restore ORDERS and ORDER_LINE between write benchmark iterations. Not measured.
  */
 public final class OrderMaintenance {
 
@@ -53,10 +52,7 @@ public final class OrderMaintenance {
         return result;
     }
 
-    /**
-     * Deletes every order (and its lines) above the loaded id range and restores the captured order states.
-     * Commits.
-     */
+    /** Deletes the orders and lines above the loaded id range, restores the captured states and commits. */
     public static void reset(Connection connection, long loadedOrders, List<OrderState> snapshot)
             throws SQLException {
         try (PreparedStatement lines = connection.prepareStatement("DELETE FROM ORDER_LINE WHERE ORDER_ID > ?");
@@ -86,11 +82,7 @@ public final class OrderMaintenance {
         connection.commit();
     }
 
-    /**
-     * Refreshes the planner statistics of every table after the bulk load, so that query plans do not depend on
-     * when a background analyze happens to run. PostgreSQL: {@code ANALYZE}; H2: {@code ANALYZE} (selectivity).
-     * Commits.
-     */
+    /** Refreshes the planner statistics of all tables with {@code ANALYZE} and commits. */
     public static void analyze(Connection connection, Database database) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("ANALYZE");
@@ -99,10 +91,8 @@ public final class OrderMaintenance {
     }
 
     /**
-     * Removes the dead row versions the write benchmarks left in ORDERS and ORDER_LINE and refreshes their
-     * statistics, so that every iteration starts from the same physical state (PostgreSQL only: {@code VACUUM
-     * ANALYZE}, which needs auto-commit; H2 has nothing equivalent to do). The connection's auto-commit setting is
-     * restored afterwards.
+     * Runs {@code VACUUM ANALYZE} on ORDERS and ORDER_LINE so that every iteration starts from the same physical
+     * state. PostgreSQL only.
      */
     public static void vacuumOrders(Connection connection, Database database) throws SQLException {
         if (database != Database.POSTGRESQL) {
@@ -117,7 +107,7 @@ public final class OrderMaintenance {
         }
     }
 
-    /** Maximum ORDER_LINE id currently stored. */
+    /** Returns the highest ORDER_LINE id. */
     public static long maxOrderLineId(Connection connection) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("SELECT COALESCE(MAX(ID), 0) FROM ORDER_LINE");
              ResultSet rs = ps.executeQuery()) {

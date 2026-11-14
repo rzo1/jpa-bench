@@ -34,8 +34,8 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 /**
- * An order (the JPAB "Order"). The class is not called {@code Order} because ORDER is a JPQL and SQL keyword
- * and the name would clash with {@code jakarta.persistence.criteria.Order}. The table is {@code ORDERS}.
+ * An order, mapped to table {@code ORDERS}. Not named {@code Order}: ORDER is an SQL keyword and the name would
+ * clash with {@code jakarta.persistence.criteria.Order}.
  */
 @Entity(name = "PurchaseOrder")
 @Table(name = "ORDERS")

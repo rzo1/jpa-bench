@@ -15,8 +15,8 @@
 --
 
 -- Target database: H2 2.x (in-memory).
--- Schema of the jpa-bench data model. This script is the ONLY source of the schema:
--- no provider may generate, update or validate it.
+-- Schema of the jpa-bench data model. The only source of the schema: providers never generate, update or
+-- validate it.
 DROP TABLE IF EXISTS PRODUCT_TAG CASCADE;
 DROP TABLE IF EXISTS PRODUCT_CATEGORY CASCADE;
 DROP TABLE IF EXISTS ORDER_LINE CASCADE;

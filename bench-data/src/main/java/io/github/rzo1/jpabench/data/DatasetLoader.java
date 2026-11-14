@@ -32,8 +32,7 @@ import io.github.rzo1.jpabench.data.Rows.PersonRow;
 import io.github.rzo1.jpabench.data.Rows.ProductRow;
 
 /**
- * Loads a generated dataset with plain JDBC batches. The loader never goes through a JPA provider, so every
- * provider is benchmarked against byte-identical data.
+ * Loads a generated dataset with plain JDBC batches, so that every provider runs against identical data.
  */
 public final class DatasetLoader {
 
@@ -48,8 +47,8 @@ public final class DatasetLoader {
     }
 
     /**
-     * (Re)creates the schema of {@code database}, loads the dataset of the given size and seed and refreshes the
-     * planner statistics ({@link OrderMaintenance#analyze}). The connection must have auto-commit disabled.
+     * Recreates the schema, loads the dataset and refreshes the planner statistics. The connection must have
+     * auto-commit disabled.
      */
     public static DatasetInfo load(Connection connection, Database database, DatasetSize size, long seed)
             throws SQLException {
@@ -67,9 +66,7 @@ public final class DatasetLoader {
         }
     }
 
-    /**
-     * Inserts orders with their lines (used by write benchmarks to prepare rows they delete). Does not commit.
-     */
+    /** Inserts orders with their lines without committing. */
     public static void insertOrders(Connection connection, List<OrderRow> orders) throws SQLException {
         try (PreparedStatement order = connection.prepareStatement(INSERT_ORDER);
              PreparedStatement line = connection.prepareStatement(INSERT_ORDER_LINE)) {
@@ -107,8 +104,8 @@ public final class DatasetLoader {
     }
 
     /**
-     * One batched insert into one table. Before a batch is executed, the batches of the tables it references are
-     * executed, so foreign keys are always satisfied while every table is still inserted in full batches.
+     * Batched insert into one table. A flush first flushes the batches of referenced tables, so foreign keys are
+     * satisfied.
      */
     private static final class Batch implements AutoCloseable {
         private final PreparedStatement statement;
@@ -288,7 +285,7 @@ public final class DatasetLoader {
             });
         }
 
-        /** Flushes all batches in insertion (= foreign key) order. */
+        /** Flushes all batches in foreign key order. */
         void flushAll() throws SQLException {
             for (Batch batch : batches) {
                 batch.flush();

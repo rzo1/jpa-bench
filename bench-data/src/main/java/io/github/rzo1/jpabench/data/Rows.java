@@ -20,8 +20,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Plain row records produced by the {@link DataGenerator}. They mirror the DDL, not the entities, so that the
- * data module stays independent of any persistence API.
+ * Row records produced by the {@link DataGenerator}. They mirror the DDL, not the entities.
  */
 public final class Rows {
 
@@ -47,8 +46,8 @@ public final class Rows {
     }
 
     /**
-     * A person of one of the two inheritance hierarchies. {@code type} is the discriminator value
-     * ({@code EMP} or {@code CON}); the columns of the other subtype are {@code null}.
+     * A person of either inheritance hierarchy. {@code type} is the discriminator value ({@code EMP} or
+     * {@code CON}); the columns of the other subtype are {@code null}.
      */
     public record PersonRow(long id, String type, String name, String email, String department, BigDecimal salary,
                             String agency, BigDecimal hourlyRate) {

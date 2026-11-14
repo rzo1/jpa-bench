@@ -26,7 +26,7 @@ import jakarta.persistence.Table;
 
 /**
  * Root of the person hierarchy mapped with {@link InheritanceType#SINGLE_TABLE}.
- * The discriminator column is declared explicitly so that every provider reads and writes the same column.
+ * The discriminator column is explicit so that every provider uses the same one.
  */
 @Entity
 @Table(name = "ST_PERSON")

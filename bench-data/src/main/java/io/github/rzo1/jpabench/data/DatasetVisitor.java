@@ -22,8 +22,8 @@ import io.github.rzo1.jpabench.data.Rows.PersonRow;
 import io.github.rzo1.jpabench.data.Rows.ProductRow;
 
 /**
- * Receives the generated rows in a fixed order: categories, products, customers, orders (with lines),
- * SINGLE_TABLE persons, JOINED persons. Rows are streamed so that large datasets need not fit in memory.
+ * Receives the generated rows in order: categories, products, customers, orders with lines, SINGLE_TABLE persons,
+ * JOINED persons.
  */
 public interface DatasetVisitor {
 
