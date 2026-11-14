@@ -1,70 +1,67 @@
 # bench-viz
 
-Turns a `results/<timestamp>/` directory written by `run.sh` into comparison charts and one static HTML report.
+Charts, HTML reports and the results site for `run.sh` results. Python 3.12+, [uv](https://docs.astral.sh/uv/),
+pandas, matplotlib, Jinja2; ruff and pytest.
 
-Python 3.12+, managed with [uv](https://docs.astral.sh/uv/) (`pyproject.toml`, `uv.lock`); pandas, matplotlib and
-Jinja2; ruff for lint and format; pytest.
-
-## Usage
+## Commands
 
 ```bash
 cd bench-viz
-uv run jpa-bench-viz ../results/<timestamp>                 # writes ../results/<timestamp>/report/
-uv run jpa-bench-viz ../results/<timestamp> --out /tmp/r    # other output directory
-uv run jpa-bench-viz ../results/<timestamp> --format png    # PNG instead of SVG charts
+uv run jpa-bench-viz ../results/<timestamp>                 # report in ../results/<timestamp>/report/
+uv run jpa-bench-viz ../results/<timestamp> -o /tmp/r --format png
+uv run jpa-bench-viz add-run ../results/<timestamp> <runs-dir> [--contributor HANDLE] [--machine LABEL]
+uv run jpa-bench-viz validate <run-dir or runs-dir> [--submission]
+uv run jpa-bench-viz site <runs-dir> -o <site-dir>
 ```
 
-Output:
-
-| File | Content |
+| Command | Does |
 |---|---|
-| `index.html` | the report, a single self-contained file (SVG inlined, PNG as data URI) |
-| `charts/*.svg` / `*.png` | every chart as a separate file |
-| `scores.csv` | one row per runner, database, dataset, benchmark and mode: score, error, relative score |
-| `statements.csv` | statement metrics per operation, one row per runner, database, dataset and benchmark |
+| `report` (default) | one self-contained `index.html` (charts inlined), `charts/`, `scores.csv`, `statements.csv` |
+| `add-run` | copies a run to `<runs-dir>/<yyyy-mm-dd>-<machine>-<contributor>/`, gzips `logs/`, skips `report/` |
+| `validate` | exit 1 on errors: metadata and required fields, empty or broken JSON, failed or missing jobs, verification mismatches, dataset checksum not the reference. `--submission` also checks the directory name, gzipped logs, no `report/`, size below 50 MB |
+| `site` | `index.html` (all runs, smoke and reduced runs separate), `datasets.html`, `runs/<run-id>/index.html` |
 
-## What the report shows
+The site has no external resources: CSS and charts are inline, links are relative. It works from `file://`.
 
-Per database and dataset (and per database for the two `emfBootstrap` runs, warm and cold start):
+## Report
 
-- **Relative overview** per JMH mode: every benchmark, one bar per provider, normalized to the fastest
-  provider (1.0). For throughput that is `score / best`; for time modes `best / score`, so a longer bar is
-  always better. Error bars are the JMH score error scaled the same way.
-- **Score tables** per mode: absolute score ± error and the factor relative to the fastest (highlighted).
-- **Statements per operation**: one panel per benchmark, statements stacked by kind (SELECT, INSERT,
-  UPDATE, DELETE, other).
-- **SQL shape**: JDBC round trips and SQL characters per operation (log scale), longest SELECT and joined tables
-  in SELECTs per operation (JOIN keywords plus theta joins); plus the full statement metric table.
-- **Per benchmark** (collapsed): absolute score with error bars per mode, and the distinct SQL texts of the
-  first iteration per provider (from `results/<timestamp>/sql/`), to compare the generated SQL side by side.
+Top of every report: run date and duration, contributor, machine, OS, power source, JDK, databases, jpa-bench
+commit, JMH settings, datasets with their checksum, verification result, providers with version, enhancement,
+OpenJPA snapshot build and revision. Smoke runs (`run.sh --smoke`, or 1 fork and 1 iteration) and reduced runs
+(fewer than 2 forks or 5 iterations) are flagged as not comparable.
 
-The environment (`metadata.json`: commit, build profiles, JDK, OS, CPU, database image, JMH, metering and order
-settings) and every provider's settings are listed at the top, followed by the **result verification**: the
-checksum every provider returned for each read operation (`verification.tsv`), with operations whose results
-differ between providers flagged, because their scores are not comparable.
+Then per database and dataset (and per database for `emfBootstrap` warm and cold start):
 
-Every provider label names the enhancement mode from `bench.provider.enhancement`, e.g.
-`EclipseLink 5.0.2 (not woven)`, `EclipseLink 5.0.2 (woven)`, `Hibernate ORM 7.4.15.Final (not enhanced)`,
-`Apache OpenJPA 4.1.1 (enhanced)`, `Apache OpenJPA 4.1.1 (runtime enhanced)`, because it changes what a provider does.
+- relative overview per JMH mode, normalized to the fastest provider (1.0); throughput `score / best`, time
+  modes `best / score`;
+- score tables (absolute score ± error, factor to the fastest);
+- statements per operation by kind, JDBC round trips, SQL characters, longest SELECT, joined tables;
+- per benchmark the scores and the distinct SQL of the first iteration per provider.
+
+Labels name the enhancement mode from `bench.provider.enhancement`, e.g. `EclipseLink 5.0.2 (not woven)`.
 
 How the numbers are read:
 
-- Results files are matched as `<runner>-<db>-<dataset>.json`; `db` and `dataset` come from the JMH params when
-  present. Empty files (an aborted or still running JMH run) are skipped.
-- Statement metrics: with `run.sh --metering separate` (the default) or `off` in `metadata.json` the timed runs
-  were unmetered, so their counters are ignored and the metrics come from `metrics/<runner>-<db>-<dataset>.json`;
-  with `inline` (or no `metering` entry) from the timed runs.
-- Single shot results with a batch (the write benchmarks, `measurementBatchSize` 200) are the time of the whole
-  batch in JMH; they are divided by the batch size, so every score is per operation.
-- JMH sums `@AuxCounters(EVENTS)` counters over iterations and forks in `score`. The counters already are per
-  operation per iteration, so the per-operation value is the **mean of the secondary metric's `rawData`**.
-- Statement metrics do not depend on the JMH mode; the throughput run is used, the average time run where
-  there is none.
-- A JMH `scoreError` of `NaN` (a single measurement iteration) is shown as 0: smoke runs have no error
-  estimate, and the report says so.
-- Each runner keeps its colour in every chart (fixed order: OpenJPA 4.1, OpenJPA 4.2, OpenJPA 4.1 agent, OpenJPA 4.2 agent, Hibernate 6.6,
-  Hibernate 7, EclipseLink 4, EclipseLink 5, EclipseLink 4 woven, EclipseLink 5 woven), regardless of which
-  runners a run contains.
+- Files match `<runner>-<db>-<dataset>.json`; `db` and `dataset` come from the JMH params when present. Empty
+  files (aborted or running) are skipped.
+- `metering` `separate` or `off`: statement metrics from `metrics/*.json`, the timed runs' counters are ignored;
+  `inline` or missing: from the timed runs.
+- Single shot results with a batch (write benchmarks) are divided by `measurementBatchSize`.
+- Per-operation metric = mean of the secondary metric's `rawData` (JMH sums `EVENTS` counters in `score`).
+- Statement metrics come from the throughput run, else the average time run.
+- `scoreError` `NaN` (one iteration) is shown as 0.
+- Runner colours follow `KNOWN_RUNNERS` in `results.py`, regardless of rank.
+
+## Datasets
+
+`src/jpa_bench_viz/datasets.json` describes the data model and the row counts and checksums of S, M and L.
+`tests/test_site.py` checks it against `DatasetSize.java`, `DataGenerator.java`, the DDL and the golden
+checksum in `DatasetLoaderTest.java`. The `sizes` section comes from the generator:
+
+```bash
+./mvnw -B -q compile -pl bench-data
+jshell --class-path bench-data/target/classes bench-viz/scripts/datasets.jsh
+```
 
 ## Development
 
@@ -75,5 +72,5 @@ uv run ruff format --check
 uv run pytest
 ```
 
-The tests use `tests/fixtures/run/`, a trimmed copy of a real `run.sh --smoke` result directory (H2, dataset
-S, two runners, two benchmarks, plus the bootstrap results and an empty result file).
+`tests/fixtures/run/` is a trimmed `run.sh --smoke` result (H2, dataset S, two runners, two benchmarks,
+bootstrap results, one empty result file).

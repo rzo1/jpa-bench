@@ -1,0 +1,20 @@
+{# Table of runs; needs rows (list of RunInfo). #}
+<div class="scroll card">
+<table>
+  <thead><tr><th class="text">Date</th><th class="text">Machine</th><th class="text">Contributor</th><th class="text">JDK</th><th class="text">Databases</th><th class="text">Datasets</th><th class="text">Kind</th><th class="text">Verification</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td class="text"><a href="runs/{{ r.run_id }}/index.html" title="{{ r.run_id }}">{{ r.date }}</a></td>
+    <td class="text">{{ r.machine }}</td>
+    <td class="text">{{ r.contributor }}</td>
+    <td class="text">{{ r.jdk }}</td>
+    <td class="text">{{ r.db_labels | join(", ") }}</td>
+    <td class="text">{{ r.datasets | join(", ") }}</td>
+    <td class="text"><span class="badge {{ r.kind }}">{{ r.kind }}</span>{% if not r.jobs_complete %} <span class="mismatch">incomplete</span>{% endif %}</td>
+    <td class="text">{% if r.mismatches is none %}<span class="mismatch">missing</span>{% elif r.mismatches %}<span class="mismatch">{{ r.mismatches }} mismatch(es)</span>{% else %}<span class="ok">ok</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

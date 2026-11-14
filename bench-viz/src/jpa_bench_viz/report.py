@@ -39,8 +39,8 @@ from jpa_bench_viz.results import (
     statement_table,
     verification_mismatches,
 )
+from jpa_bench_viz.runinfo import DEFAULT_REPO_URL, summarize
 
-# Columns of the statement table, in display order.
 STATEMENT_COLUMNS: tuple[str, ...] = (
     "stmtSelect",
     "stmtInsert",
@@ -98,8 +98,29 @@ def format_number(value: Any) -> str:
     return f"{number:.3g}"
 
 
-def build_report(results: Results, out_dir: Path, image_format: str = "svg") -> Path:
-    """Writes charts, CSV exports and ``index.html`` into ``out_dir``; returns the path of the report."""
+def environment() -> Environment:
+    env = Environment(
+        loader=PackageLoader("jpa_bench_viz", "templates"),
+        autoescape=select_autoescape(["html", "j2"]),
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    env.filters["num"] = format_number
+    env.filters["count"] = lambda n: f"{int(n):,}"
+    return env
+
+
+def build_report(
+    results: Results,
+    out_dir: Path,
+    image_format: str = "svg",
+    links: dict[str, str] | None = None,
+    repo_url: str = DEFAULT_REPO_URL,
+) -> Path:
+    """Writes charts, CSV exports and ``index.html`` into ``out_dir``; returns the path of the report.
+
+    ``links`` (``index``, ``datasets``) are the relative URLs of the site pages, None for a standalone report.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     writer = charts.ChartWriter(out_dir / "charts", image_format)
     scores = results.scores
@@ -117,16 +138,13 @@ def build_report(results: Results, out_dir: Path, image_format: str = "svg") -> 
         for dataset in ordered(set(scores[scores["db"] == db]["dataset"]), DATASET_ORDER):
             sections.append(_dataset_section(results, writer, table, labels, db, dataset))
 
-    environment = Environment(
-        loader=PackageLoader("jpa_bench_viz", "templates"),
-        autoescape=select_autoescape(["html", "j2"]),
-        trim_blocks=True,
-        lstrip_blocks=True,
-    )
-    environment.filters["num"] = format_number
-    environment.globals["chart"] = lambda c: _embed(c, out_dir)
-    template = environment.get_template("report.html.j2")
-    html = template.render(
+    env = environment()
+    env.globals["chart"] = lambda c: _embed(c, out_dir)
+    html = env.get_template("report.html.j2").render(
+        run=summarize(results.directory),
+        links=links,
+        repo_url=repo_url,
+        datasets_url=links["datasets"] if links else "",
         metadata=results.metadata,
         directory=results.directory,
         runners=results.runners,
@@ -188,10 +206,6 @@ def _providers(results: Results) -> list[dict[str, Any]]:
             {
                 "runner": runner,
                 "label": results.provider_label(runner),
-                "build": harness.get("bench.provider.build", ""),
-                "revision": harness.get("bench.provider.revision", ""),
-                "enhancement": harness.get("bench.provider.enhancement", ""),
-                "datasource": harness.get("bench.datasource.keys", ""),
                 "harness": harness,
                 "properties": info.get("providerProperties", {}),
             }

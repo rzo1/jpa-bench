@@ -1,0 +1,38 @@
+<!doctype html>
+<!--
+  Copyright the jpa-bench authors.
+  Licensed under the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jpa-bench results</title>
+{% include "_style.html.j2" %}
+</head>
+<body>
+<main>
+<h1>jpa-bench results</h1>
+<p class="lede">
+  JMH benchmark of JPA providers (OpenJPA, Hibernate, EclipseLink) on H2 and PostgreSQL, with identical schema,
+  data and settings. Each run is from one machine; compare providers within a run, not runs with each other.
+  <a href="datasets.html">Data model and datasets</a> · <a href="{{ repo_url }}">Source and how to contribute a run</a>
+</p>
+
+<h2>Runs</h2>
+{% if comparable %}
+{% set rows = comparable %}{% include "_runs.html.j2" %}
+{% else %}
+<p class="note">No full runs yet.</p>
+{% endif %}
+
+{% if other %}
+<h2>Smoke and reduced runs</h2>
+<p class="mismatch">Too few forks or iterations for meaningful numbers. Not comparable.</p>
+{% set rows = other %}{% include "_runs.html.j2" %}
+{% endif %}
+
+<p class="note">Generated {{ generated }}.</p>
+</main>
+</body>
+</html>

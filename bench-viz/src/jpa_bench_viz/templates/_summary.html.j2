@@ -1,0 +1,48 @@
+{# Run summary at the top of every run page; needs run (RunInfo), repo_url, datasets_url. #}
+{% if run.notes %}
+<div class="banner" role="note">
+  {% for n in run.notes %}<p>{{ n }}</p>{% endfor %}
+</div>
+{% endif %}
+<dl class="meta card" id="summary">
+  <div><dt>Run</dt><dd>{{ run.date }}{% if run.duration %} ({{ run.duration }}){% endif %} <span class="badge {{ run.kind }}">{{ run.kind }}</span></dd></div>
+  {% if run.contributor %}<div><dt>Contributor</dt><dd>{{ run.contributor }}</dd></div>{% endif %}
+  <div><dt>Machine</dt><dd>{{ run.machine }}<br><span class="note">{{ run.hardware }}</span></dd></div>
+  <div><dt>OS</dt><dd>{{ run.os }}</dd></div>
+  {% if run.power %}<div><dt>Power</dt><dd>{{ run.power }}</dd></div>{% endif %}
+  <div><dt>JDK</dt><dd>{{ run.jdk }}</dd></div>
+  <div><dt>Databases</dt><dd>
+    {% for db in run.dbs %}
+    {% if db == "h2" %}H2 {{ run.h2_version }} in-memory{% elif db == "postgresql" %}PostgreSQL: <code>{{ run.postgres }}</code>{% else %}{{ db }}{% endif %}{% if not loop.last %}<br>{% endif %}
+    {% endfor %}
+  </dd></div>
+  <div><dt>jpa-bench commit</dt><dd>{% set url = run.commit_url(repo_url) %}{% if url %}<a href="{{ url }}"><code>{{ run.metadata.git.commit[:12] }}</code></a>{% else %}<code>{{ (run.metadata.git or {}).commit }}</code>{% endif %}{% if (run.metadata.git or {}).dirty %} (dirty){% endif %}</dd></div>
+  <div><dt>JMH</dt><dd>{% set j = run.metadata.jmh or {} %}forks {{ j.forks }}, warmup {{ j.warmupIterations }} × {{ j.warmupTime }}, measurement {{ j.iterations }} × {{ j.time }}; bootstrap {{ j.bootstrapWarmup }} + {{ j.bootstrapIterations }} shots per fork, cold start {{ j.coldForks }} JVMs{% if j.jvmArgs %}; JVM <code>{{ j.jvmArgs }}</code>{% endif %}</dd></div>
+  <div><dt>Datasets</dt><dd>
+    {% for d in run.datasets %}
+    {% if datasets_url %}<a href="{{ datasets_url }}#dataset-{{ d }}">{{ d }}</a>{% else %}{{ d }}{% endif %}:
+    {% for l in run.loaded if l.size == d %}<code>{{ l.checksum }}</code>
+      {% if l.matches %}<span class="ok">reference data</span>{% elif l.matches is none %}<span class="mismatch">seed {{ l.seed }}</span>{% else %}<span class="mismatch">differs from the reference</span>{% endif %}
+    {% else %}<span class="note">no checksum logged</span>{% endfor %}
+    {% if not loop.last %}<br>{% endif %}
+    {% endfor %}
+  </dd></div>
+  <div><dt>Verification</dt><dd>
+    {% if run.mismatches is none %}<span class="mismatch">no verification.tsv</span>
+    {% elif run.mismatches %}<span class="mismatch">{{ run.mismatches }} mismatch(es)</span>
+    {% else %}<span class="ok">all providers return the same results</span>{% endif %}
+    <br><span class="note">jobs: {{ run.jobs_ok }} ok{% if run.jobs_expected %} of {{ run.jobs_expected }}{% endif %}{% if run.jobs_failed %}, {{ run.jobs_failed }} failed{% endif %}</span>
+  </dd></div>
+</dl>
+
+<h2 id="providers">Providers</h2>
+<div class="scroll card">
+<table>
+  <thead><tr><th>Runner</th><th class="text">Provider</th><th class="text">Version</th><th class="text">Enhancement</th><th class="text">Snapshot build</th><th class="text">Revision</th></tr></thead>
+  <tbody>
+  {% for p in run.providers %}
+  <tr><td>{{ p.runner }}</td><td class="text">{{ p.name }}</td><td class="text">{{ p.version }}</td><td class="text">{{ p.enhancement }}</td><td class="text">{{ p.build }}</td><td class="text">{% if p.revision_url %}<a href="{{ p.revision_url }}"><code>{{ p.revision }}</code></a>{% else %}<code>{{ p.revision }}</code>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

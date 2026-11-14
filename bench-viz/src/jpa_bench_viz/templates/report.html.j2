@@ -7,103 +7,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>jpa-bench report{% if metadata.timestamp %} {{ metadata.timestamp }}{% endif %}</title>
-<style>
-:root {
-  color-scheme: light;
-  --bg: #f4f3f0;
-  --surface: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --ink-3: #8a8984;
-  --rule: #e4e3df;
-  --accent: #2a78d6;
-  --best: #e6f0fb;
-  --bad: #b42318;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --bg: #121211;
-    --surface: #1a1a19;
-    --ink: #f0efec;
-    --ink-2: #c3c2b7;
-    --ink-3: #8f8e86;
-    --rule: #34332f;
-    --accent: #3987e5;
-    --best: #1c2c40;
-    --bad: #f97066;
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #121211;
-  --surface: #1a1a19;
-  --ink: #f0efec;
-  --ink-2: #c3c2b7;
-  --ink-3: #8f8e86;
-  --rule: #34332f;
-  --accent: #3987e5;
-  --best: #1c2c40;
-  --bad: #f97066;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--ink);
-  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; }
-h1 { font-size: 24px; margin: 0 0 4px; }
-h2 { font-size: 19px; margin: 40px 0 8px; padding-top: 8px; border-top: 1px solid var(--rule); }
-h3 { font-size: 15px; margin: 24px 0 8px; }
-p, li { color: var(--ink-2); }
-a { color: var(--accent); }
-code, pre { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
-.lede { margin: 0 0 16px; }
-nav ul { padding-left: 18px; margin: 4px 0; }
-.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; }
-.meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 24px; margin: 0; }
-.meta dt { color: var(--ink-3); font-size: 12px; }
-.meta dd { margin: 0 0 6px; overflow-wrap: anywhere; }
-.scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 13px; }
-th, td { padding: 4px 8px; border-bottom: 1px solid var(--rule); text-align: right; vertical-align: top; white-space: nowrap; }
-th { color: var(--ink-2); font-weight: 600; }
-th:first-child, td:first-child, td.text, th.text { text-align: left; }
-td.best { background: var(--best); font-weight: 600; }
-.err, .rel { color: var(--ink-3); font-size: 12px; }
-figure.chart {
-  margin: 12px 0;
-  padding: 8px;
-  background: #fcfcfb; /* charts are rendered for a light surface */
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  overflow-x: auto;
-}
-figure.chart svg, figure.chart img { max-width: 100%; height: auto; display: block; }
-details { margin: 8px 0; }
-summary { cursor: pointer; color: var(--ink-2); }
-pre.sql { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0 12px; }
-.note { font-size: 13px; color: var(--ink-3); }
-.mismatch, tr.mismatch td { color: var(--bad); font-weight: 600; }
-</style>
+<title>jpa-bench: {{ run.machine }}, {{ run.date or directory.name }}</title>
+{% include "_style.html.j2" %}
 </head>
 <body>
 <main>
-<h1>jpa-bench report</h1>
+{% if links %}<p class="crumbs"><a href="{{ links.index }}">All runs</a> · <a href="{{ links.datasets }}">Data model and datasets</a></p>{% endif %}
+<h1>jpa-bench: {{ run.machine }}, {{ run.date or directory.name }}</h1>
 <p class="lede">
-  JPA providers on identical schema, data and settings.
-  Run <code>{{ metadata.timestamp or directory.name }}</code>.
+  JPA providers on identical schema, data and settings. Run <code>{{ run.run_id }}</code>.
   Scores are JMH scores (mean ± 99.9% confidence half-width); statement metrics are per operation.
 </p>
+
+{% include "_summary.html.j2" %}
 
 <nav class="card" aria-label="Contents">
   <strong>Contents</strong>
   <ul>
-    <li><a href="#environment">Environment</a></li>
+    <li><a href="#summary">Summary</a></li>
     <li><a href="#providers">Providers</a></li>
+    <li><a href="#settings">Settings</a></li>
     {% if verification %}<li><a href="#verification">Result verification</a></li>{% endif %}
     {% for s in sections %}
     <li><a href="#{{ s.anchor }}">{{ s.title }}</a></li>
@@ -111,42 +34,21 @@ pre.sql { background: var(--surface); border: 1px solid var(--rule); border-radi
   </ul>
 </nav>
 
-<h2 id="environment">Environment</h2>
+<h2 id="settings">Settings</h2>
 {% if metadata %}
 <dl class="meta card">
-  <div><dt>Git commit</dt><dd><code>{{ metadata.git.commit }}</code>{% if metadata.git.dirty %} (dirty){% endif %}</dd></div>
-  <div><dt>JDK</dt><dd>{{ metadata.java.version }} ({{ metadata.java.vendor }})</dd></div>
-  <div><dt>OS</dt><dd>{{ metadata.os.name }} {{ metadata.os.release }} {{ metadata.os.arch }}</dd></div>
-  <div><dt>CPU</dt><dd>{{ metadata.cpu.model }}, {{ metadata.cpu.cores }} cores, {{ ((metadata.cpu.memoryBytes or 0) / 1073741824) | round(1) }} GiB</dd></div>
   <div><dt>Docker</dt><dd>{{ metadata.docker }}</dd></div>
-  <div><dt>PostgreSQL</dt><dd>{% if metadata.postgres.external %}external {{ metadata.postgres.external }}{% else %}{{ metadata.postgres.image }}, {{ metadata.postgres.cpus }} CPUs, {{ metadata.postgres.memoryMb }} MB{% if metadata.postgres.settings %}, {{ metadata.postgres.settings }}{% endif %}{% endif %}</dd></div>
-  <div><dt>JMH</dt><dd>{{ metadata.jmh.forks }} forks, {{ metadata.jmh.warmupIterations }} × {{ metadata.jmh.warmupTime }} warmup, {{ metadata.jmh.iterations }} × {{ metadata.jmh.time }} measurement{% if metadata.jmh.jvmArgs %}, JVM {{ metadata.jmh.jvmArgs }}{% endif %}</dd></div>
-  <div><dt>Bootstrap</dt><dd>warm: {{ metadata.jmh.bootstrapWarmup }} warmup + {{ metadata.jmh.bootstrapIterations }} measured shots per fork{% if metadata.jmh.coldForks %}; cold start: first shot of {{ metadata.jmh.coldForks }} fresh JVMs{% endif %}</dd></div>
   {% if metadata.metering %}<div><dt>Statement metering</dt><dd>{% if metadata.metering.mode == "separate" %}separate metered run ({{ metadata.metering.forks }} fork, {{ metadata.metering.warmupIterations }} + {{ metadata.metering.iterations }} × {{ metadata.metering.time }}); times are unmetered{% elif metadata.metering.mode == "inline" %}inline: times include the metering overhead{% else %}off{% endif %}</dd></div>{% endif %}
   {% if metadata.order %}<div><dt>Order</dt><dd>{{ metadata.order.mode }}{% if metadata.order.seed %} (seed {{ metadata.order.seed }}){% endif %}</dd></div>{% endif %}
   {% if metadata.build %}<div><dt>Build profiles</dt><dd>{{ metadata.build.profiles or "none" }}</dd></div>{% endif %}
-  <div><dt>Matrix</dt><dd>{{ metadata.matrix.dbs }}; datasets {{ metadata.matrix.datasets }}</dd></div>
+  <div><dt>Benchmarks</dt><dd><code>{{ metadata.matrix.include }}</code></dd></div>
   {% set first = (metadata.runners or {}).values() | list | first %}
-  {% if first %}<div><dt>Seed</dt><dd>{{ first.seed }}</dd></div>{% endif %}
+  {% if first %}<div><dt>Data seed</dt><dd>{{ first.seed }}</dd></div>{% endif %}
 </dl>
-{% if metadata.jmh and metadata.jmh.iterations and metadata.jmh.iterations < 3 %}
-<p class="note">This run used very few iterations (smoke settings): error bars are missing or meaningless; do not draw conclusions from it.</p>
-{% endif %}
 {% else %}
 <p class="note">No metadata.json in this directory.</p>
 {% endif %}
 
-<h2 id="providers">Providers</h2>
-<div class="scroll card">
-<table>
-  <thead><tr><th>Runner</th><th class="text">Provider</th><th class="text">Build</th><th class="text">Enhancement / weaving</th><th class="text">DataSource passed as</th></tr></thead>
-  <tbody>
-  {% for p in providers %}
-  <tr><td>{{ p.runner }}</td><td class="text">{{ p.label }}</td><td class="text">{{ p.build }}{% if p.revision %} ({{ p.revision }}){% endif %}</td><td class="text">{{ p.enhancement }}</td><td class="text"><code>{{ p.datasource }}</code></td></tr>
-  {% endfor %}
-  </tbody>
-</table>
-</div>
 {% for p in providers %}
 <details>
   <summary>Settings of {{ p.label }}</summary>
@@ -162,7 +64,7 @@ pre.sql { background: var(--surface); border: 1px solid var(--rule); border-radi
 {% if verification %}
 <h2 id="verification">Result verification</h2>
 {% if verification.mismatches %}
-<p class="mismatch">{{ verification.mismatches }} operation(s) return different results for different providers: those providers do not do the same work, so their scores are not comparable.</p>
+<p class="mismatch">{{ verification.mismatches }} operation(s) return different results for different providers; their scores are not comparable.</p>
 {% else %}
 <p class="note">Every read operation returned the same result checksum for every provider (fixed inputs, run once per trial before measuring).</p>
 {% endif %}

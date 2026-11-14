@@ -1,0 +1,69 @@
+<!doctype html>
+<!--
+  Copyright the jpa-bench authors.
+  Licensed under the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jpa-bench datasets</title>
+{% include "_style.html.j2" %}
+</head>
+<body>
+<main>
+<p class="crumbs"><a href="index.html">All runs</a></p>
+<h1>Data model and datasets</h1>
+<p class="lede">Every provider runs on the same schema and the same generated rows. Seed <code>{{ data.seed }}</code>.</p>
+
+<h2 id="model">Data model</h2>
+<div class="scroll card">
+<table>
+  <thead><tr><th class="text">Entity</th><th class="text">Table</th><th class="text">Mapping</th></tr></thead>
+  <tbody>
+  {% for e in data.entities %}
+  <tr><td class="text">{{ e.entity }}</td><td class="text"><code>{{ e.table }}</code></td><td class="text wrap">{{ e.mapping }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2 id="generation">Generation</h2>
+<ul>
+  {% for line in data.generator %}<li>{{ line }}</li>{% endfor %}
+  {% for line in data.rules %}<li>{{ line }}</li>{% endfor %}
+</ul>
+
+<h2 id="sizes">Sizes</h2>
+{% set sizes = data.sizes %}
+{% set tables = (sizes.values() | list | first).tables.keys() | list %}
+<div class="scroll card">
+<table>
+  <thead><tr><th class="text">Table</th>{% for name in sizes %}<th id="dataset-{{ name }}">{{ name }} (×{{ sizes[name].scale }})</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for t in tables %}
+  <tr><td class="text"><code>{{ t }}</code></td>{% for name in sizes %}<td>{{ sizes[name].tables[t] | count }}</td>{% endfor %}</tr>
+  {% endfor %}
+  <tr><td class="text">generated records</td>{% for name in sizes %}<td>{{ sizes[name].records | count }}</td>{% endfor %}</tr>
+  <tr><td class="text">checksum</td>{% for name in sizes %}<td><code>{{ sizes[name].checksum }}</code></td>{% endfor %}</tr>
+  </tbody>
+</table>
+</div>
+<p class="note">Generated records count an order with its lines as one record. Every run logs the checksum of the data it loaded; a run page flags data that differs from this table.</p>
+
+{% if runs %}
+<h2 id="runs">Datasets per run</h2>
+<div class="scroll card">
+<table>
+  <thead><tr><th class="text">Run</th><th class="text">Datasets</th></tr></thead>
+  <tbody>
+  {% for r in runs %}
+  <tr><td class="text"><a href="runs/{{ r.run_id }}/index.html">{{ r.run_id }}</a></td><td class="text">{{ r.datasets | join(", ") }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+</main>
+</body>
+</html>

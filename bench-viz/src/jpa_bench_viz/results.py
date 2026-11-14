@@ -99,11 +99,7 @@ class Results:
 
 
 def provider_label(metadata: dict[str, Any], runner: str) -> str:
-    """Provider, version and enhancement of a runner, e.g. ``EclipseLink 5.0.2 (not woven)``.
-
-    The enhancement is part of every label because it changes what a provider does (EclipseLink without
-    weaving loads to-one LAZY associations eagerly), so results of one provider with and without it differ.
-    """
+    """Provider, version and enhancement of a runner, e.g. ``EclipseLink 5.0.2 (not woven)``."""
     harness = metadata.get("runners", {}).get(runner, {}).get("harness", {})
     name = harness.get("bench.provider.name")
     version = harness.get("bench.provider.version")
@@ -113,7 +109,7 @@ def provider_label(metadata: dict[str, Any], runner: str) -> str:
 
 
 def enhancement_label(enhancement: str | None, provider: str) -> str:
-    """Short form of ``bench.provider.enhancement``: enhanced / runtime enhanced / not enhanced, woven / not woven."""
+    """Short form of ``bench.provider.enhancement``, e.g. ``runtime enhanced`` or ``not woven``."""
     if not enhancement:
         return ""
     weaving = "eclipselink" in provider.lower()
@@ -211,9 +207,7 @@ def load(directory: Path | str) -> Results:
     metadata = load_metadata(directory)
     score_rows: list[dict[str, Any]] = []
     metric_rows: list[dict[str, Any]] = []
-    # run.sh --metering separate (default) or off: the timed runs (<name>.json) ran unmetered, their counters
-    # are all 0 and ignored; the statement metrics come from the short metered runs (metrics/<name>.json).
-    # --metering inline (and results without the setting): the timed runs carry the metrics.
+    # metering separate/off: metrics from metrics/*.json only; inline (or unset): from the timed runs
     timed_metered = metadata.get("metering", {}).get("mode", "inline") == "inline"
     for path in sorted(directory.glob("*.json")):
         if path.name == "metadata.json":
@@ -244,7 +238,7 @@ def _read_file(path: Path, score_rows: list[dict[str, Any]], metric_rows: list[d
         return
     text = path.read_text(encoding="utf-8").strip()
     if not text:
-        # run.sh creates the file only when JMH finishes; an empty file is an aborted or running run
+        # aborted or still running
         return
     try:
         entries = json.loads(text)
@@ -306,8 +300,7 @@ def _read_entry(
     mode = str(entry.get("mode", ""))
     primary = entry.get("primaryMetric") or {}
     raw = _flatten(primary.get("rawData"))
-    # JMH reports a single shot with a batch (the write benchmarks: @Measurement(batchSize = 200)) as the time
-    # of the whole batch, although the unit says ms/op; divide to get the time per operation
+    # JMH reports a single shot with a batch (write benchmarks) as the time of the whole batch
     batch = _batch_size(entry) if mode == "ss" else 1
     key = {
         "runner": runner,
@@ -333,8 +326,7 @@ def _read_entry(
     )
     for name, secondary in (entry.get("secondaryMetrics") or {}).items():
         values = _flatten((secondary or {}).get("rawData"))
-        # JMH sums EVENTS counters over iterations and forks in "score"; the counters already are per
-        # operation per iteration, so the per-operation value is the mean of the raw data.
+        # JMH sums EVENTS counters in "score"; the per-operation value is the mean of the raw data
         per_op = sum(values) / len(values) if values else _number((secondary or {}).get("score"))
         metric_rows.append({**key, "metric": str(name), "per_op": per_op, "samples": len(values)})
 
@@ -396,11 +388,7 @@ def _add_relative(scores: pd.DataFrame) -> pd.DataFrame:
 
 
 def statement_table(metrics: pd.DataFrame) -> pd.DataFrame:
-    """Per-operation metrics, one row per (runner, db, dataset, benchmark), one column per metric.
-
-    Statement counts do not depend on the JMH mode; throughput results are preferred, average time is used
-    where no throughput result exists.
-    """
+    """Per-operation metrics, one row per (runner, db, dataset, benchmark); from thrpt, else avgt."""
     if metrics.empty:
         return pd.DataFrame()
     preference = {"thrpt": 0, "avgt": 1}
