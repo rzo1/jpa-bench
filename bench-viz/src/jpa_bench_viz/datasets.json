@@ -1,0 +1,30 @@
+{
+  "seed": 20260101,
+  "generator": [
+    "DataGenerator draws every value from one SplittableRandom with the seed, in a fixed order.",
+    "Ids are assigned by the application, dense 1..n per table; no IDENTITY, no sequences.",
+    "Schema from bench-data/src/main/resources/ddl/<db>.sql only; providers never generate it.",
+    "Loaded with plain JDBC, then ANALYZE; write benchmarks reset the affected tables before every iteration.",
+    "The checksum is a 64-bit FNV-1a over every generated row (an order includes its lines)."
+  ],
+  "rules": [
+    "products = 500 x scale, customers = 1000 x scale, orders = 5 per customer",
+    "1-5 lines per order, 1-3 categories and 0-4 tags per product, 25 categories",
+    "persons = 1000 x scale per inheritance hierarchy, 70% employees, 30% contractors",
+    "orders dated 2024-01-01 + 0..729 days; status NEW 10%, PAID 15%, SHIPPED 15%, DELIVERED 55%, CANCELLED 5%"
+  ],
+  "entities": [
+    {"entity": "Category", "table": "CATEGORY", "mapping": "plain entity"},
+    {"entity": "Product", "table": "PRODUCT", "mapping": "@ManyToMany categories (join table PRODUCT_CATEGORY), @ElementCollection tags (PRODUCT_TAG)"},
+    {"entity": "Customer", "table": "CUSTOMER", "mapping": "@Embedded Address, @OneToMany(mappedBy) orders"},
+    {"entity": "PurchaseOrder", "table": "ORDERS", "mapping": "@Version, @ManyToOne(LAZY) customer, @Enumerated(STRING) status, @OneToMany(mappedBy, cascade ALL) lines"},
+    {"entity": "OrderLine", "table": "ORDER_LINE", "mapping": "@ManyToOne(LAZY) order, @ManyToOne(LAZY) product"},
+    {"entity": "StPerson, StEmployee, StContractor", "table": "ST_PERSON", "mapping": "abstract root, @Inheritance(SINGLE_TABLE), discriminator PTYPE (EMP, CON)"},
+    {"entity": "JnPerson, JnEmployee, JnContractor", "table": "JN_PERSON, JN_EMPLOYEE, JN_CONTRACTOR", "mapping": "abstract root, @Inheritance(JOINED), discriminator PTYPE (EMP, CON)"}
+  ],
+  "sizes": {
+    "S": {"scale": 1, "checksum": "17f556d4e3d90c3d", "records": 8525, "tables": {"CATEGORY": 25, "PRODUCT": 500, "PRODUCT_CATEGORY": 990, "PRODUCT_TAG": 973, "CUSTOMER": 1000, "ORDERS": 5000, "ORDER_LINE": 14922, "ST_PERSON": 1000, "JN_PERSON": 1000, "JN_EMPLOYEE": 712, "JN_CONTRACTOR": 288}},
+    "M": {"scale": 10, "checksum": "f9af4488decbf21d", "records": 85025, "tables": {"CATEGORY": 25, "PRODUCT": 5000, "PRODUCT_CATEGORY": 9946, "PRODUCT_TAG": 9986, "CUSTOMER": 10000, "ORDERS": 50000, "ORDER_LINE": 150083, "ST_PERSON": 10000, "JN_PERSON": 10000, "JN_EMPLOYEE": 7066, "JN_CONTRACTOR": 2934}},
+    "L": {"scale": 50, "checksum": "e0c1eeb56b6b09ca", "records": 425025, "tables": {"CATEGORY": 25, "PRODUCT": 25000, "PRODUCT_CATEGORY": 49751, "PRODUCT_TAG": 49657, "CUSTOMER": 50000, "ORDERS": 250000, "ORDER_LINE": 749408, "ST_PERSON": 50000, "JN_PERSON": 50000, "JN_EMPLOYEE": 35004, "JN_CONTRACTOR": 14996}}
+  }
+}
