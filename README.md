@@ -142,6 +142,12 @@ Each fork starts its own container through Testcontainers:
 | CPU limit | 2 CPUs (`NanoCPUs`) | `JPABENCH_PG_CPUS` |
 | memory limit | 2048 MiB, no swap | `JPABENCH_PG_MEMORY_MB` |
 | data directory | tmpfs (no disk I/O noise) | |
+| server settings | `fsync=off` (Testcontainers default), `autovacuum=off` | |
+
+Statistics are not left to chance: the loader runs `ANALYZE` right after the bulk load (on H2 too), and before
+every write iteration the harness runs `VACUUM ANALYZE ORDERS, ORDER_LINE`, so each iteration starts from the
+same physical state and no background autovacuum runs while measuring. With an external server
+(`JPABENCH_PG_URL`) switch autovacuum off yourself for comparable runs.
 
 Set `JPABENCH_PG_URL` (and `JPABENCH_PG_USER`, `JPABENCH_PG_PASSWORD`) to use an existing server instead.
 If Docker is not on the default socket set `DOCKER_HOST`, e.g.

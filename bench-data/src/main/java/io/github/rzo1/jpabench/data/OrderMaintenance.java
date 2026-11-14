@@ -20,6 +20,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -83,6 +84,37 @@ public final class OrderMaintenance {
             }
         }
         connection.commit();
+    }
+
+    /**
+     * Refreshes the planner statistics of every table after the bulk load, so that query plans do not depend on
+     * when a background analyze happens to run. PostgreSQL: {@code ANALYZE}; H2: {@code ANALYZE} (selectivity).
+     * Commits.
+     */
+    public static void analyze(Connection connection, Database database) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("ANALYZE");
+        }
+        connection.commit();
+    }
+
+    /**
+     * Removes the dead row versions the write benchmarks left in ORDERS and ORDER_LINE and refreshes their
+     * statistics, so that every iteration starts from the same physical state (PostgreSQL only: {@code VACUUM
+     * ANALYZE}, which needs auto-commit; H2 has nothing equivalent to do). The connection's auto-commit setting is
+     * restored afterwards.
+     */
+    public static void vacuumOrders(Connection connection, Database database) throws SQLException {
+        if (database != Database.POSTGRESQL) {
+            return;
+        }
+        boolean autoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(true);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("VACUUM ANALYZE ORDERS, ORDER_LINE");
+        } finally {
+            connection.setAutoCommit(autoCommit);
+        }
     }
 
     /** Maximum ORDER_LINE id currently stored. */

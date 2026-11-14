@@ -48,8 +48,8 @@ public final class DatasetLoader {
     }
 
     /**
-     * (Re)creates the schema of {@code database} and loads the dataset of the given size and seed.
-     * The connection must have auto-commit disabled.
+     * (Re)creates the schema of {@code database}, loads the dataset of the given size and seed and refreshes the
+     * planner statistics ({@link OrderMaintenance#analyze}). The connection must have auto-commit disabled.
      */
     public static DatasetInfo load(Connection connection, Database database, DatasetSize size, long seed)
             throws SQLException {
@@ -59,6 +59,7 @@ public final class DatasetLoader {
             Checksum checksum = new DataGenerator(seed, size).generate(visitor);
             visitor.flushAll();
             connection.commit();
+            OrderMaintenance.analyze(connection, database);
             long millis = (System.nanoTime() - start) / 1_000_000;
             return new DatasetInfo(size, seed, DatasetSize.CATEGORIES, size.products(), size.customers(),
                     size.orders(), visitor.orderLines, size.persons(), size.persons(), checksum.records(),

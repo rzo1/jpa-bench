@@ -31,7 +31,8 @@ import io.github.rzo1.jpabench.data.OrderMaintenance.OrderState;
 /**
  * State of the write benchmarks. The dataset is loaded once per trial; before every iteration the ORDERS and
  * ORDER_LINE tables are reset with plain JDBC: rows inserted by the benchmark are deleted and the orders the
- * update benchmarks may modify (ids {@code 1..window}) get their captured state back.
+ * update benchmarks may modify (ids {@code 1..window}) get their captured state back. On PostgreSQL the two
+ * tables are then vacuumed and analyzed, so dead row versions of the previous iteration do not pile up.
  */
 @State(Scope.Benchmark)
 public class WriteState {
@@ -71,6 +72,7 @@ public class WriteState {
     public void resetTables() {
         fixture.withRawConnection(c -> {
             OrderMaintenance.reset(c, fixture.dataset().orders(), snapshot);
+            OrderMaintenance.vacuumOrders(c, fixture.env().database());
             return null;
         });
     }

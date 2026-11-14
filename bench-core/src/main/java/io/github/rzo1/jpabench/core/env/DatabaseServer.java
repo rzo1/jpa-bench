@@ -135,6 +135,10 @@ public sealed interface DatabaseServer extends AutoCloseable {
                     .withUsername("bench")
                     .withPassword("bench")
                     .withTmpFs(Map.of("/var/lib/postgresql", "rw"))
+                    // fsync=off is the Testcontainers default (the data directory is a tmpfs anyway);
+                    // autovacuum=off: no background vacuum/analyze during measurement, the harness runs ANALYZE
+                    // after loading and VACUUM ANALYZE before every write iteration itself
+                    .withCommand("postgres", "-c", "fsync=off", "-c", "autovacuum=off")
                     .withCreateContainerCmdModifier(cmd -> {
                         if (cmd.getHostConfig() != null) {
                             cmd.getHostConfig()
@@ -147,7 +151,8 @@ public sealed interface DatabaseServer extends AutoCloseable {
             container.start();
             return new PostgreSql(container, container.getJdbcUrl(), container.getUsername(),
                     container.getPassword(),
-                    "PostgreSQL " + image + " (Testcontainers, cpus=" + cpus + ", memory=" + memoryMb + "MiB, tmpfs)");
+                    "PostgreSQL " + image + " (Testcontainers, cpus=" + cpus + ", memory=" + memoryMb
+                            + "MiB, tmpfs, fsync=off, autovacuum=off)");
         }
 
         @Override
