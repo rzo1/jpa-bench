@@ -33,8 +33,8 @@ Per database and dataset (and per database for the separate `emfBootstrap` run):
 - **Score tables** per mode: absolute score ± error and the factor relative to the fastest (highlighted).
 - **Statements per operation**: one panel per benchmark, statements stacked by kind (SELECT, INSERT,
   UPDATE, DELETE, other).
-- **SQL shape**: JDBC round trips and SQL characters per operation (log scale), longest SELECT and JOIN
-  keywords in SELECTs per operation; plus the full statement metric table.
+- **SQL shape**: JDBC round trips and SQL characters per operation (log scale), longest SELECT and joined tables
+  in SELECTs per operation (JOIN keywords plus theta joins); plus the full statement metric table.
 - **Per benchmark** (collapsed): absolute score with error bars per mode, and the distinct SQL texts of the
   first iteration per provider (from `results/<timestamp>/sql/`), to compare the generated SQL side by side.
 

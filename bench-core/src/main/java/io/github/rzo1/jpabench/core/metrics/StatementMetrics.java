@@ -37,8 +37,8 @@ import net.ttddyy.dsproxy.listener.QueryExecutionListener;
  *   <li>{@code batches} counts {@code executeBatch} calls, {@code batchedRows} the parameter sets (or statements)
  *       they contained.</li>
  *   <li>{@code sqlChars} sums the SQL text length of every execution; a batch counts each distinct text once.</li>
- *   <li>{@code selectJoins} sums the JOIN keywords of all executed SELECTs, {@code selectMaxChars} is the longest
- *       SELECT since the last {@link #resetMax()}.</li>
+ *   <li>{@code selectJoins} sums the joins of all executed SELECTs ({@link SqlClassifier#joins}: JOIN keywords
+ *       plus theta joins), {@code selectMaxChars} is the longest SELECT since the last {@link #resetMax()}.</li>
  * </ul>
  */
 public final class StatementMetrics implements QueryExecutionListener {

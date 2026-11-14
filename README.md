@@ -94,7 +94,7 @@ secondary metrics (JMH `@AuxCounters(EVENTS)`):
 | `jdbcExecutions` | round trips (`execute*` calls, one per `executeBatch`) |
 | `jdbcBatches`, `jdbcBatchedRows` | `executeBatch` calls and the parameter sets they carried |
 | `sqlChars` | total SQL text length sent |
-| `selectJoins` | `JOIN` keywords over all SELECTs |
+| `selectJoins` | joined tables over all SELECTs: `JOIN` keywords plus the extra tables of comma-separated FROM lists (theta joins, as EclipseLink writes them), subqueries included |
 | `selectMaxChars` | longest SELECT of the iteration (not per op) |
 | `ops` | operations of the iteration (raw count) |
 
@@ -190,7 +190,7 @@ Per database and dataset the report contains:
 - every benchmark normalized to the fastest provider (1.0 = fastest; throughput `score / best`, time modes
   `best / score`) with error bars, per JMH mode, and tables with the absolute scores;
 - statements per operation stacked by kind (SELECT, INSERT, UPDATE, DELETE, other), JDBC round trips, SQL
-  characters, the longest SELECT and JOINs per operation, to see which provider sends more or bigger SQL;
+  characters, the longest SELECT and joined tables per operation, to see which provider sends more or bigger SQL;
 - per benchmark the absolute scores and the distinct SQL each provider sent in the first iteration;
 - the run's environment from `metadata.json` and every provider's settings.
 

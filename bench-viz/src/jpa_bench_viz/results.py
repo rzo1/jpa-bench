@@ -62,7 +62,7 @@ METRIC_LABELS: dict[str, str] = {
     "jdbcBatches": "JDBC batches",
     "jdbcBatchedRows": "batched rows",
     "sqlChars": "SQL chars",
-    "selectJoins": "JOINs in SELECTs",
+    "selectJoins": "joined tables in SELECTs",
     "selectMaxChars": "longest SELECT (chars)",
     "ops": "ops per iteration",
 }

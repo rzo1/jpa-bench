@@ -377,7 +377,7 @@ SQL_SHAPE_METRICS: tuple[tuple[str, str, bool], ...] = (
     ("jdbcExecutions", "JDBC round trips / op (log)", True),
     ("sqlChars", "SQL chars / op (log)", True),
     ("selectMaxChars", "longest SELECT (chars)", False),
-    ("selectJoins", "JOINs in SELECTs / op", False),
+    ("selectJoins", "joined tables in SELECTs / op", False),
 )
 
 
@@ -389,7 +389,7 @@ def sql_shape(
     all_runners: Sequence[str],
     labels: dict[str, str],
 ) -> Chart | None:
-    """Round trips, SQL text length, longest SELECT and JOINs per operation, log scale, per benchmark."""
+    """Round trips, SQL length, longest SELECT and joined tables per operation, log scale, per benchmark."""
     frame = table[(table["db"] == db) & (table["dataset"] == dataset)]
     metrics = [(m, title, log) for m, title, log in SQL_SHAPE_METRICS if m in frame.columns]
     if frame.empty or not metrics:
@@ -423,5 +423,8 @@ def sql_shape(
     )
     fig.tight_layout()
     _legend(fig, axes[0][0], ncol=min(len(runners), 3))
-    alt = f"JDBC round trips, SQL length, longest SELECT and JOINs per operation on {db}, dataset {dataset}"
+    alt = (
+        "JDBC round trips, SQL length, longest SELECT and joined tables per operation"
+        f" on {db}, dataset {dataset}"
+    )
     return writer.save(fig, f"sql-shape-{db}-{dataset}", alt)
