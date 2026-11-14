@@ -27,5 +27,125 @@
 
     <artifactId>runner-hibernate-6.6</artifactId>
     <name>jpa-bench :: runner-hibernate-6.6</name>
-    <description>Benchmark runner for Hibernate ORM 6.6.59.Final (stub, not implemented yet; see runner-hibernate-7 for the reference).</description>
+    <description>Benchmark runner for Hibernate ORM 6.6 (Jakarta Persistence 3.1).</description>
+
+    <properties>
+        <hibernate.version>6.6.59.Final</hibernate.version>
+        <!-- written into bench-provider.properties; the "enhance" profile switches it -->
+        <bench.enhancement>none</bench.enhancement>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-model</artifactId>
+        </dependency>
+        <!-- exactly one provider; it brings its own jakarta.persistence-api (3.1) -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>${hibernate.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!--
+          Optional build-time bytecode enhancement (mvn -Penhance package): the model classes are unpacked into
+          target/classes, enhanced there with lazy initialization and dirty tracking, and the unenhanced
+          bench-model jar is left out of benchmarks.jar. Off by default: Hibernate does not need enhancement.
+        -->
+        <profile>
+            <id>enhance</id>
+            <properties>
+                <bench.enhancement>build-time (lazy initialization, dirty tracking)</bench.enhancement>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>unpack-model</id>
+                                <phase>process-classes</phase>
+                                <goals>
+                                    <goal>unpack-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <includeArtifactIds>bench-model</includeArtifactIds>
+                                    <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                                    <excludes>META-INF/**</excludes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Hibernate 6.x ships the enhancer as hibernate-enhance-maven-plugin (7 renamed it hibernate-maven-plugin) -->
+                    <plugin>
+                        <groupId>org.hibernate.orm.tooling</groupId>
+                        <artifactId>hibernate-enhance-maven-plugin</artifactId>
+                        <version>${hibernate.version}</version>
+                        <executions>
+                            <execution>
+                                <id>enhance-model</id>
+                                <phase>process-classes</phase>
+                                <goals>
+                                    <goal>enhance</goal>
+                                </goals>
+                                <configuration>
+                                    <enableLazyInitialization>true</enableLazyInitialization>
+                                    <enableDirtyTracking>true</enableDirtyTracking>
+                                    <enableAssociationManagement>false</enableAssociationManagement>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>benchmarks-jar</id>
+                                <configuration>
+                                    <artifactSet>
+                                        <excludes>
+                                            <exclude>${project.groupId}:bench-model</exclude>
+                                        </excludes>
+                                    </artifactSet>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
