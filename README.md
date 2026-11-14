@@ -176,13 +176,27 @@ the commit, use the same JDK and run `./run.sh` with the same options.
 
 ## Visualisation
 
-`bench-viz/` (Python, managed with [uv](https://docs.astral.sh/uv/)) reads a results directory and produces
-comparison charts and a static HTML report:
+`bench-viz/` (Python 3.12+, managed with [uv](https://docs.astral.sh/uv/), pandas + matplotlib) reads a results
+directory and writes comparison charts and one self-contained static HTML report:
 
 ```bash
 cd bench-viz
-uv run jpa-bench-viz ../results/<timestamp>
+uv run jpa-bench-viz ../results/<timestamp>              # writes ../results/<timestamp>/report/index.html
+uv run jpa-bench-viz ../results/<timestamp> --format png --out /tmp/report
 ```
+
+Per database and dataset the report contains:
+
+- every benchmark normalized to the fastest provider (1.0 = fastest; throughput `score / best`, time modes
+  `best / score`) with error bars, per JMH mode, and tables with the absolute scores;
+- statements per operation stacked by kind (SELECT, INSERT, UPDATE, DELETE, other), JDBC round trips, SQL
+  characters, the longest SELECT and JOINs per operation, to see which provider sends more or bigger SQL;
+- per benchmark the absolute scores and the distinct SQL each provider sent in the first iteration;
+- the run's environment from `metadata.json` and every provider's settings.
+
+It also writes `scores.csv` and `statements.csv` for further analysis. See [bench-viz/README.md](bench-viz/README.md)
+for how the numbers are read and for development (`uv run ruff check`, `uv run ruff format --check`,
+`uv run pytest`).
 
 ## License
 

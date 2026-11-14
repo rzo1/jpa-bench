@@ -1,0 +1,131 @@
+{
+  "timestamp": "20261114T142145Z",
+  "git": {
+    "commit": "0000000000000000000000000000000000000000",
+    "dirty": false
+  },
+  "java": {
+    "version": "21.0.13+9-LTS",
+    "vendor": "Eclipse Adoptium"
+  },
+  "os": {
+    "name": "Darwin",
+    "release": "27.2.0",
+    "arch": "arm64"
+  },
+  "cpu": {
+    "model": "Test CPU",
+    "cores": "8",
+    "memoryBytes": 17179869184
+  },
+  "docker": "29.9.3",
+  "postgres": {
+    "image": "postgres:18.1",
+    "cpus": 2,
+    "memoryMb": 2048,
+    "external": ""
+  },
+  "matrix": {
+    "runners": "runner-hibernate-7 runner-openjpa-4.2",
+    "dbs": "h2",
+    "datasets": "S",
+    "include": "ReadBenchmarks|WriteBenchmarks"
+  },
+  "jmh": {
+    "modes": "thrpt,avgt",
+    "forks": 1,
+    "warmupIterations": 1,
+    "iterations": 1,
+    "warmupTime": "1s",
+    "time": "1s",
+    "bootstrapWarmup": 1,
+    "bootstrapIterations": 1,
+    "jvmArgs": ""
+  },
+  "runners": {
+    "runner-hibernate-7": {
+      "database": "h2",
+      "harness": {
+        "bench.datasource.keys": "jakarta.persistence.nonJtaDataSource",
+        "bench.jdbc.batchSize": "50",
+        "bench.pool.autoCommit": "false",
+        "bench.pool.isolation": "TRANSACTION_READ_COMMITTED",
+        "bench.pool.size": "4",
+        "bench.postgres.image": "postgres:18.1",
+        "bench.provider.enhancement": "none",
+        "bench.provider.name": "Hibernate ORM",
+        "bench.provider.version": "7.4.15.Final",
+        "bench.runner": "runner-hibernate-7",
+        "bench.version.datasource-proxy": "1.11.1",
+        "bench.version.h2": "2.5.252",
+        "bench.version.hikaricp": "7.1.0",
+        "bench.version.jmh": "1.37",
+        "bench.version.postgresql": "42.7.14",
+        "bench.version.testcontainers": "2.0.5"
+      },
+      "providerProperties": {
+        "hibernate.cache.use_query_cache": "false",
+        "hibernate.cache.use_second_level_cache": "false",
+        "hibernate.connection.provider_disables_autocommit": "true",
+        "hibernate.format_sql": "false",
+        "hibernate.generate_statistics": "false",
+        "hibernate.hbm2ddl.auto": "none",
+        "hibernate.jdbc.batch_size": "50",
+        "hibernate.jdbc.batch_versioned_data": "true",
+        "hibernate.order_inserts": "true",
+        "hibernate.order_updates": "true",
+        "hibernate.query.mutation_strategy.global_temporary.create_tables": "false",
+        "hibernate.query.mutation_strategy.global_temporary.drop_tables": "false",
+        "hibernate.show_sql": "false",
+        "hibernate.use_sql_comments": "false",
+        "jakarta.persistence.provider": "org.hibernate.jpa.HibernatePersistenceProvider",
+        "jakarta.persistence.schema-generation.database.action": "none",
+        "jakarta.persistence.schema-generation.scripts.action": "none",
+        "jakarta.persistence.sharedCache.mode": "NONE",
+        "jakarta.persistence.transactionType": "RESOURCE_LOCAL",
+        "jakarta.persistence.validation.mode": "NONE"
+      },
+      "seed": 20260101
+    },
+    "runner-openjpa-4.2": {
+      "database": "h2",
+      "harness": {
+        "bench.datasource.keys": "openjpa.ConnectionFactory",
+        "bench.jdbc.batchSize": "50",
+        "bench.pool.autoCommit": "false",
+        "bench.pool.isolation": "TRANSACTION_READ_COMMITTED",
+        "bench.pool.size": "4",
+        "bench.postgres.image": "postgres:18.1",
+        "bench.provider.build": "4.2.0-20261114.035154-55",
+        "bench.provider.enhancement": "build-time (openjpa-maven-plugin)",
+        "bench.provider.name": "Apache OpenJPA",
+        "bench.provider.revision": "50897c9",
+        "bench.provider.version": "4.2.0-SNAPSHOT",
+        "bench.runner": "runner-openjpa-4.2",
+        "bench.version.datasource-proxy": "1.11.1",
+        "bench.version.h2": "2.5.252",
+        "bench.version.hikaricp": "7.1.0",
+        "bench.version.jmh": "1.37",
+        "bench.version.postgresql": "42.7.14",
+        "bench.version.testcontainers": "2.0.5"
+      },
+      "providerProperties": {
+        "jakarta.persistence.provider": "org.apache.openjpa.persistence.PersistenceProviderImpl",
+        "jakarta.persistence.schema-generation.database.action": "none",
+        "jakarta.persistence.schema-generation.scripts.action": "none",
+        "jakarta.persistence.sharedCache.mode": "NONE",
+        "jakarta.persistence.transactionType": "RESOURCE_LOCAL",
+        "jakarta.persistence.validation.mode": "NONE",
+        "openjpa.ConnectionFactoryProperties": "PrintParameters=false",
+        "openjpa.DataCache": "false",
+        "openjpa.DynamicEnhancementAgent": "false",
+        "openjpa.Log": "DefaultLevel=WARN, Runtime=WARN, Tool=WARN, SQL=WARN, JDBC=WARN, Schema=WARN, MetaData=WARN, Enhance=WARN, Query=WARN",
+        "openjpa.QueryCache": "false",
+        "openjpa.RuntimeUnenhancedClasses": "unsupported",
+        "openjpa.jdbc.DBDictionary": "batchLimit=50",
+        "openjpa.jdbc.MappingDefaults": "ForeignKeyDeleteAction=restrict, JoinForeignKeyDeleteAction=restrict"
+      },
+      "seed": 20260101
+    }
+  }
+}
