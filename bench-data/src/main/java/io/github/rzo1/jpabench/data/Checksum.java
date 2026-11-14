@@ -19,8 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
- * 64-bit FNV-1a checksum over the canonical text form (the record {@code toString()}) of every generated row.
- * Two datasets with the same checksum contain exactly the same rows in the same order.
+ * 64-bit FNV-1a checksum over the {@code toString()} of every generated row.
  */
 public final class Checksum {
 

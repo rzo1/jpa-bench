@@ -16,7 +16,7 @@
 package io.github.rzo1.jpabench.data;
 
 /**
- * Dataset sizes. Every entity count is derived from the scale factor, so S, M and L have the same shape.
+ * Dataset sizes. All entity counts scale with the same factor.
  */
 public enum DatasetSize {
     S(1),

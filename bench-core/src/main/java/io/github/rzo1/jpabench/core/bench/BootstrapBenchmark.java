@@ -40,15 +40,9 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 
 /**
- * Time to a usable EntityManagerFactory: create the EMF, read its metamodel, open an EntityManager, run one
- * {@code find} and close everything. Measured as single shots. run.sh runs it twice:
- * <ul>
- *   <li><b>warm</b> ({@code <runner>-<db>-bootstrap.json}): after the {@code @Warmup} shots, so provider classes
- *       are loaded and the JIT has seen the bootstrap code; this is the cost of creating another EMF in a running
- *       application.</li>
- *   <li><b>cold start</b> ({@code <runner>-<db>-coldstart.json}): {@code -wi 0 -i 1} with many forks, so every
- *       measured shot is the first EMF of a fresh JVM (class loading, static initialization, interpreter).</li>
- * </ul>
+ * Time to a usable EntityManagerFactory: create it, read the metamodel, open an EntityManager, run one
+ * {@code find} and close everything. run.sh runs it warm (after warmup) and as cold start ({@code -wi 0 -i 1},
+ * many forks), where every shot is the first EMF of a fresh JVM.
  */
 @BenchmarkMode(Mode.SingleShotTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)

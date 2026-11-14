@@ -14,11 +14,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<!--
-  The single persistence unit of the benchmark. It deliberately names no provider and no settings:
-  the provider is selected with jakarta.persistence.provider and every setting is passed as a property map
-  built by BenchEnvironment from bench-common.properties and the runner's bench-provider.properties.
--->
+<!-- Provider and settings are passed as properties by BenchEnvironment. -->
 <persistence xmlns="https://jakarta.ee/xml/ns/persistence"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence https://jakarta.ee/xml/ns/persistence/persistence_3_0.xsd"

@@ -72,9 +72,8 @@ class DatasetLoaderTest {
     }
 
     /**
-     * Golden checksum of dataset S with the default seed. Every published result was produced with this data; if
-     * this test fails, the generator (or the JDK's formatting of a value) changed and results are no longer
-     * comparable with earlier runs.
+     * Golden checksum of dataset S with the default seed. A failure means the generated data changed and results
+     * are no longer comparable with earlier runs.
      */
     @Test
     void defaultDatasetMatchesGoldenChecksum() {

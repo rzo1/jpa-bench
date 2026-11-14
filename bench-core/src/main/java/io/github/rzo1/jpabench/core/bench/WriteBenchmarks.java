@@ -43,16 +43,11 @@ import io.github.rzo1.jpabench.model.Product;
 import io.github.rzo1.jpabench.model.PurchaseOrder;
 
 /**
- * Write benchmarks. Each operation writes {@link WriteState#entities} orders in one transaction of a fresh
- * EntityManager (bulk operations: a fixed id range).
+ * Write benchmarks. Each operation writes {@link WriteState#entities} orders in one transaction.
  *
- * <p>Every provider does the same amount of work per iteration: the benchmarks run in
- * {@link Mode#SingleShotTime} with a fixed batch of {@value #BATCH} operations per iteration, and the tables are
- * reset before every iteration. In a time-bound mode (throughput, average time) a faster provider would write more
- * rows per iteration and then work against bigger tables, more garbage (H2 lives in the benchmark heap) and more
- * dead rows (PostgreSQL) than a slower one. JMH reports the time of the whole batch (although its unit says
- * ms/op); bench-viz divides it by {@code measurementBatchSize} from the JMH JSON to get milliseconds per
- * operation.</p>
+ * <p>{@link Mode#SingleShotTime} with a fixed batch of {@value #BATCH} operations per iteration and tables reset
+ * before every iteration, so that every provider does the same work. JMH reports the time of the whole batch;
+ * bench-viz divides it by {@code measurementBatchSize}.</p>
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.SingleShotTime)
@@ -62,7 +57,7 @@ import io.github.rzo1.jpabench.model.PurchaseOrder;
 @Fork(value = 2, jvmArgs = {"-Xms2g", "-Xmx2g"})
 public class WriteBenchmarks {
 
-    /** Operations per iteration (JMH batch size); run.sh passes the same value with -bs/-wbs. */
+    /** Operations per iteration (JMH batch size); run.sh passes the same value. */
     static final int BATCH = 200;
     /** Lines per persisted order. */
     static final int LINES = 3;
@@ -190,7 +185,7 @@ public class WriteBenchmarks {
         counters.op();
     }
 
-    /** Cycles through {@code [1, window]} so that only snapshotted orders are modified. */
+    /** Cycles through {@code [1, window]}, so only snapshotted orders are modified. */
     private long nextUpdateWindow(WriteState state, int size) {
         if (updateCursor + size - 1 > state.window) {
             updateCursor = 1;

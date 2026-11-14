@@ -23,9 +23,8 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
 /**
- * State of the read benchmarks: the dataset is loaded once per trial with plain JDBC and never modified, the
- * EntityManagerFactory is created once per trial. Before the first iteration every read operation runs once with
- * fixed inputs and its checksum is logged ({@link Verification}); this is neither measured nor counted.
+ * State of the read benchmarks. Dataset and EntityManagerFactory are created once per trial; the read checksums
+ * are logged before the first iteration ({@link Verification}).
  */
 @State(Scope.Benchmark)
 public class ReadState {

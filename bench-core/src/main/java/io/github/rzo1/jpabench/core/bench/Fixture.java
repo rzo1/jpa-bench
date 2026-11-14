@@ -29,8 +29,7 @@ import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.EntityTransaction;
 
 /**
- * What a benchmark state holds for one trial (one fork): the environment, the loaded dataset and the
- * {@link EntityManagerFactory}, which is created once per trial.
+ * Per-trial resources of a benchmark: environment, loaded dataset and {@link EntityManagerFactory}.
  */
 public final class Fixture implements AutoCloseable {
 
@@ -69,10 +68,7 @@ public final class Fixture implements AutoCloseable {
         return emf;
     }
 
-    /**
-     * Runs {@code work} in a fresh EntityManager and a resource-local transaction, then closes the EntityManager.
-     * Every benchmark uses this, reads included, so every provider runs with the same transaction demarcation.
-     */
+    /** Runs {@code work} in a new EntityManager and resource-local transaction. Used by every benchmark. */
     public <T> T inTransaction(Function<EntityManager, T> work) {
         EntityManager em = emf.createEntityManager();
         try {
@@ -92,7 +88,7 @@ public final class Fixture implements AutoCloseable {
         }
     }
 
-    /** Harness JDBC work on the raw (unmetered) pool. */
+    /** Runs harness JDBC work on the unmetered pool. */
     public <T> T withRawConnection(SqlWork<T> work) {
         try (Connection connection = env.rawDataSource().getConnection()) {
             return work.run(connection);

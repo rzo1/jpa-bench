@@ -34,7 +34,7 @@ public sealed interface DatabaseServer extends AutoCloseable {
     String ENV_PG_CPUS = "JPABENCH_PG_CPUS";
     /** Environment variable with the memory limit of the PostgreSQL container in MiB (default 2048). */
     String ENV_PG_MEMORY_MB = "JPABENCH_PG_MEMORY_MB";
-    /** Use an already running PostgreSQL instead of Testcontainers (JDBC URL; user/password below). */
+    /** JDBC URL of an external PostgreSQL to use instead of Testcontainers. */
     String ENV_PG_URL = "JPABENCH_PG_URL";
     String ENV_PG_USER = "JPABENCH_PG_USER";
     String ENV_PG_PASSWORD = "JPABENCH_PG_PASSWORD";
@@ -47,13 +47,13 @@ public sealed interface DatabaseServer extends AutoCloseable {
 
     String password();
 
-    /** Human readable description for logs and metadata. */
+    /** Returns a description for logs and metadata. */
     String description();
 
     @Override
     void close();
 
-    /** Starts {@code database}; settings provide the defaults ({@code bench.postgres.image}). */
+    /** Starts {@code database} with the defaults from {@code settings}. */
     static DatabaseServer start(Database database, ProviderSettings settings) {
         return switch (database) {
             case H2 -> new H2();
@@ -101,7 +101,7 @@ public sealed interface DatabaseServer extends AutoCloseable {
      */
     final class PostgreSql implements DatabaseServer {
 
-        /** Setting (from bench-build.properties, i.e. the root pom) with the default image. */
+        /** Setting with the default image, filtered into bench-build.properties from the root pom. */
         public static final String IMAGE_SETTING = "bench.postgres.image";
         public static final int DEFAULT_CPUS = 2;
         public static final int DEFAULT_MEMORY_MB = 2048;
@@ -136,9 +136,7 @@ public sealed interface DatabaseServer extends AutoCloseable {
                     .withUsername("bench")
                     .withPassword("bench")
                     .withTmpFs(Map.of("/var/lib/postgresql", "rw"))
-                    // fsync=off is the Testcontainers default (the data directory is a tmpfs anyway);
-                    // autovacuum=off: no background vacuum/analyze during measurement, the harness runs ANALYZE
-                    // after loading and VACUUM ANALYZE before every write iteration itself
+                    // autovacuum=off: the harness runs ANALYZE after loading and VACUUM ANALYZE per write iteration
                     .withCommand("postgres", "-c", "fsync=off", "-c", "autovacuum=off")
                     .withCreateContainerCmdModifier(cmd -> {
                         if (cmd.getHostConfig() != null) {
@@ -157,8 +155,7 @@ public sealed interface DatabaseServer extends AutoCloseable {
         }
 
         /**
-         * Docker accepts {@code name:tag@sha256:digest}, Testcontainers only {@code name:tag} or
-         * {@code name@sha256:digest}: with a digest the tag is informational only and dropped here.
+         * Drops the tag of {@code name:tag@sha256:digest}, which Testcontainers does not accept.
          */
         static DockerImageName imageName(String image) {
             int at = image.indexOf("@sha256:");

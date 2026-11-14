@@ -26,8 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Minimal SQL script runner: strips {@code --} line comments and splits on {@code ;}. The DDL scripts contain no
- * string literals or procedural blocks, so nothing more is needed.
+ * Minimal SQL script runner: strips {@code --} line comments and splits on {@code ;}. Does not support string
+ * literals or procedural blocks.
  */
 public final class SqlScript {
 

@@ -25,21 +25,18 @@ import io.github.rzo1.jpabench.data.DataGenerator;
 import io.github.rzo1.jpabench.data.DatasetInfo;
 
 /**
- * Runs every read operation for a fixed set of inputs and logs one checksum per operation as
- * {@code # jpa-bench: verify <operation>=<hex>}. The inputs and the data depend only on the dataset size and the
- * seed, so every provider must log the same checksums; run.sh collects them from the JMH logs and reports every
- * operation where providers differ (wrong results, e.g. duplicates of a fetch join, a different page or missing
- * subclass fields).
+ * Runs every read operation with fixed inputs and logs one checksum per operation as
+ * {@code # jpa-bench: verify <operation>=<hex>}. run.sh reports operations whose checksums differ between providers.
  */
 final class Verification {
 
-    /** Fixed inputs per operation: first, middle and last part of the dataset. */
+    /** Inputs per operation: start, middle and end of the dataset. */
     private static final int SAMPLES = 3;
 
     private Verification() {
     }
 
-    /** Computes the checksums of all read operations, in a stable order. */
+    /** Returns the checksums of all read operations in a stable order. */
     static Map<String, String> readChecksums(Fixture fixture) {
         DatasetInfo d = fixture.dataset();
         Map<String, String> result = new LinkedHashMap<>();
@@ -81,8 +78,8 @@ final class Verification {
     }
 
     /**
-     * Runs {@code operation} for {@value #SAMPLES} inputs spread over {@code [1, max - size + 1]} (the first id of
-     * a window of {@code size}) and stores the combined, order-sensitive checksum.
+     * Runs {@code operation} for {@value #SAMPLES} window starts spread over {@code [1, max - size + 1]} and stores
+     * the combined checksum.
      */
     private static void put(Map<String, String> result, String name, long max, int size,
                             LongUnaryOperator operation) {

@@ -16,8 +16,7 @@
 package io.github.rzo1.jpabench.data;
 
 /**
- * What was loaded: sizes of every table, the seed and the checksum of all generated records (an order record
- * includes its lines).
+ * Summary of a loaded dataset: row counts, seed and checksum.
  */
 public record DatasetInfo(DatasetSize size, long seed, int categories, int products, int customers, int orders,
                           long orderLines, int singleTablePersons, int joinedPersons, long records, String checksum,

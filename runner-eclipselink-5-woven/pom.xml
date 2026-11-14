@@ -25,13 +25,7 @@
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <!--
-      runner-eclipselink-5 built with static weaving, as a runner of its own so that the woven and the unwoven
-      EclipseLink appear side by side in one run and one report. Without weaving EclipseLink loads every to-one
-      LAZY association eagerly and getReference() runs a SELECT; with weaving it behaves like OpenJPA (always
-      enhanced) and Hibernate (proxies). The settings are those of runner-eclipselink-5 (its
-      bench-provider.properties is used as is), only the weaving differs.
-    -->
+    <!-- runner-eclipselink-5 with static weaving, so that woven and unwoven EclipseLink run side by side -->
     <artifactId>runner-eclipselink-5-woven</artifactId>
     <name>jpa-bench :: runner-eclipselink-5-woven</name>
     <description>Benchmark runner for EclipseLink 5 with static weaving at build time.</description>
@@ -41,7 +35,7 @@
         <!-- written into bench-provider.properties -->
         <bench.enhancement>static weaving (build time)</bench.enhancement>
         <bench.weaving>static</bench.weaving>
-        <!-- switch on the static weaving executions of the parent and ship the woven classes -->
+        <!-- enable the parent's static weaving executions and shade the woven classes -->
         <bench.weave.phase>process-classes</bench.weave.phase>
         <bench.shade.excludeModel>${project.groupId}:bench-model</bench.shade.excludeModel>
     </properties>
@@ -75,7 +69,7 @@
 
     <build>
         <resources>
-            <!-- the equivalent settings of the unwoven runner, filtered with this module's properties -->
+            <!-- settings of runner-eclipselink-5, filtered with this module's properties -->
             <resource>
                 <directory>${project.basedir}/../runner-eclipselink-5/src/main/resources</directory>
                 <filtering>true</filtering>

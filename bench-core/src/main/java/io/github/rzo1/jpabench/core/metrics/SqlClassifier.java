@@ -19,9 +19,8 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /**
- * Classifies SQL text by its leading keyword and counts joins. Deliberately simple and identical for every
- * provider: it inspects the SQL as sent to the driver. Both methods run once per executed statement inside the
- * measured region (when metering is on), so they scan the text once without regular expressions.
+ * Classifies SQL by its leading keyword and counts joins. Runs on every metered statement, so it scans the text
+ * once without regular expressions.
  */
 public final class SqlClassifier {
 
@@ -56,10 +55,8 @@ public final class SqlClassifier {
     }
 
     /**
-     * Number of joins: every {@code JOIN} keyword (inner, outer, cross) plus every additional table of a
-     * comma-separated FROM list (theta join, as EclipseLink writes {@code FROM A t0, B t1 WHERE ...}). In other
-     * words, the tables joined to the first table of each query block, subqueries included. String literals,
-     * quoted identifiers and comments are skipped.
+     * Returns the number of joins: every {@code JOIN} keyword plus every additional table of a comma-separated
+     * FROM list (theta join), subqueries included. Literals, quoted identifiers and comments are skipped.
      */
     public static int joins(String sql) {
         int length = sql.length();

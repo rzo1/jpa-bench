@@ -71,8 +71,7 @@
             </resource>
         </resources>
         <plugins>
-            <!-- the static weaving executions are configured in the parent and bound to ${bench.weave.phase},
-                 which is "none" unless the weave profile is active -->
+            <!-- static weaving executions of the parent, disabled unless -Pweave -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -89,14 +88,7 @@
     </build>
 
     <profiles>
-        <!--
-          Optional static weaving (mvn -Pweave package): the model classes and bench-core's persistence.xml are
-          unpacked, woven with EclipseLink's StaticWeave tool into target/classes (lazy loading of to-one
-          associations, change tracking, fetch groups, internal optimizations), the unwoven bench-model jar is
-          left out of benchmarks.jar and eclipselink.weaving=static is set. Off by default: EclipseLink runs
-          without weaving, like Hibernate without bytecode enhancement. The same build is always available as
-          the separate runner runner-eclipselink-4-woven, so both variants can be compared in one run.
-        -->
+        <!-- optional static weaving at build time (-Pweave), the same build as runner-eclipselink-4-woven -->
         <profile>
             <id>weave</id>
             <properties>

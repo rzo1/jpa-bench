@@ -40,20 +40,17 @@ import jakarta.persistence.Persistence;
 import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
 
 /**
- * Provider-neutral benchmark environment: starts the database, creates the HikariCP pool, wraps it with the
- * statement metering proxy, loads data with plain JDBC and builds the {@link EntityManagerFactory} only from the
- * resolved {@link ProviderSettings}.
+ * Provider-neutral benchmark environment: database, HikariCP pool with statement metering, JDBC data loading and
+ * the {@link EntityManagerFactory} built from the resolved {@link ProviderSettings}.
  */
 public final class BenchEnvironment implements AutoCloseable {
 
-    /** The name of the persistence unit in bench-core's META-INF/persistence.xml. */
+    /** Name of the persistence unit in META-INF/persistence.xml. */
     public static final String PERSISTENCE_UNIT = "jpa-bench";
 
     /**
-     * Environment variable switching the statement metering: {@code on} (default) hands the provider the pool
-     * wrapped with datasource-proxy, {@code off} hands it the plain pool. Metering costs time on every statement
-     * (proxying and SQL classification), so run.sh measures time unmetered and counts statements in a separate,
-     * short metered run.
+     * Environment variable switching statement metering {@code on} (default) or {@code off}. Metering adds overhead
+     * to every statement, so run.sh measures time with metering off.
      */
     public static final String ENV_METERING = "JPABENCH_METERING";
 
@@ -118,7 +115,7 @@ public final class BenchEnvironment implements AutoCloseable {
         return settings;
     }
 
-    /** The pool without metering, for the harness' own JDBC work. */
+    /** Returns the unmetered pool for the harness' own JDBC work. */
     public DataSource rawDataSource() {
         return pool;
     }
@@ -128,15 +125,12 @@ public final class BenchEnvironment implements AutoCloseable {
         return metering;
     }
 
-    /**
-     * The only DataSource a provider ever sees: the pool wrapped with the statement metering proxy, or the plain
-     * pool when metering is off.
-     */
+    /** Returns the DataSource handed to the provider: the metered pool, or the plain pool if metering is off. */
     public DataSource meteredDataSource() {
         return metered;
     }
 
-    /** (Re)creates the schema without data. */
+    /** Recreates the schema without data. */
     public void createSchema() {
         try (Connection connection = pool.getConnection()) {
             SqlScript.createSchema(connection, database);
@@ -145,7 +139,7 @@ public final class BenchEnvironment implements AutoCloseable {
         }
     }
 
-    /** (Re)creates the schema and loads the dataset with plain JDBC. */
+    /** Recreates the schema and loads the dataset with plain JDBC. */
     public DatasetInfo loadDataset(DatasetSize size, long seed) {
         try (Connection connection = pool.getConnection()) {
             DatasetInfo info = DatasetLoader.load(connection, database, size, seed);
@@ -169,13 +163,13 @@ public final class BenchEnvironment implements AutoCloseable {
         return Persistence.createEntityManagerFactory(PERSISTENCE_UNIT, entityManagerFactoryProperties());
     }
 
-    /** PostgreSQL server settings that influence the results; logged with every trial. */
+    /** PostgreSQL settings logged with every trial. */
     private static final String[] PG_SETTINGS = {
         "shared_buffers", "work_mem", "effective_cache_size", "synchronous_commit", "fsync", "jit", "autovacuum",
         "max_connections", "random_page_cost"
     };
 
-    /** One line describing provider, database and settings, printed at the start of every trial. */
+    /** Returns a one-line description of provider, database and settings. */
     public String describe() {
         String product;
         try (Connection connection = pool.getConnection()) {
@@ -191,7 +185,7 @@ public final class BenchEnvironment implements AutoCloseable {
                 + settings.providerProperties();
     }
 
-    /** {@code SELECT version()} and the {@link #PG_SETTINGS} on PostgreSQL, nothing on other databases. */
+    /** Returns the server version and {@link #PG_SETTINGS} on PostgreSQL, an empty string otherwise. */
     private String serverSettings(Connection connection) throws SQLException {
         if (database != Database.POSTGRESQL) {
             return "";
