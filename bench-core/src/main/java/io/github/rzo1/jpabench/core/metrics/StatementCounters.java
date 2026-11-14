@@ -33,27 +33,19 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.infra.BenchmarkParams;
 
 /**
- * Exposes the {@link StatementMetrics} of one iteration as JMH secondary metrics. Every benchmark method takes this
- * state and calls {@link #op()} once per operation.
+ * Exposes the {@link StatementMetrics} of an iteration as JMH secondary metrics. Benchmarks call {@link #op()}
+ * once per operation.
  *
- * <p>All public accessors except {@link #ops()} and {@link #selectMaxChars()} are <b>per operation</b>
- * (iteration delta divided by the number of operations of the iteration). JMH reports {@code EVENTS} counters as
- * the <em>sum</em> over all measurement iterations and forks, so the per-operation value is the mean of the
- * {@code rawData} of the metric in the JMH JSON (which bench-viz uses), or the score divided by
- * iterations x forks.</p>
+ * <p>All counters except {@link #ops()} and {@link #selectMaxChars()} are per operation. JMH sums {@code EVENTS}
+ * counters over iterations and forks; the per-operation value is the mean of the metric's {@code rawData}.</p>
  *
- * <p>The counters are global per JVM ({@link StatementMetrics#INSTANCE}), so benchmarks must run with one thread
- * ({@code -t 1}, the default); a trial with more threads fails. When metering is off
- * ({@link io.github.rzo1.jpabench.core.env.BenchEnvironment#ENV_METERING}) every counter is 0.</p>
- *
- * <p>The distinct SQL texts of the first iteration of every trial are written to
- * {@code $JPABENCH_SQL_DIR/<benchmark>-<mode>-<params>.sql} when that environment variable is set.</p>
+ * <p>The counters are global per JVM, so only one benchmark thread is allowed. With metering off every counter is
+ * 0. If {@code JPABENCH_SQL_DIR} is set, the distinct SQL of the first iteration is written there.</p>
  */
 @State(Scope.Thread)
 @AuxCounters(AuxCounters.Type.EVENTS)
 public class StatementCounters {
-    // JMH turns every public field and every public non-void method of this class into a counter:
-    // constants and helpers must not be public.
+    // JMH reports every public field and public non-void method as a counter
 
     private final StatementMetrics metrics = StatementMetrics.INSTANCE;
     private StatementMetrics.Snapshot base;
@@ -108,7 +100,7 @@ public class StatementCounters {
         }
     }
 
-    /** Marks one completed benchmark operation. Not a counter (void). */
+    /** Marks one completed operation. */
     public void op() {
         operations++;
     }
@@ -121,7 +113,7 @@ public class StatementCounters {
         return operations == 0 ? 0 : (double) value / operations;
     }
 
-    /** Operations of this iteration (raw count). */
+    /** Returns the operations of this iteration. */
     public long ops() {
         return operations;
     }
@@ -170,7 +162,7 @@ public class StatementCounters {
         return perOp(delta().selectJoins());
     }
 
-    /** Longest SELECT of this iteration in characters (not per operation). */
+    /** Returns the length of the longest SELECT of this iteration. */
     public long selectMaxChars() {
         return metrics.selectMaxChars();
     }

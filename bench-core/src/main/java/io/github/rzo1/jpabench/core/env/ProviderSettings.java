@@ -29,8 +29,7 @@ import java.util.regex.Pattern;
 import io.github.rzo1.jpabench.data.Database;
 
 /**
- * The resolved settings of one benchmark run: {@value #COMMON} (shipped with bench-core, identical for every
- * runner) overlaid with {@value #PROVIDER} (shipped by the runner, the provider specific equivalents).
+ * Resolved settings of a run: {@value #COMMON} (bench-core) overlaid with {@value #PROVIDER} (the runner).
  *
  * <ul>
  *   <li>{@code bench.*} keys configure the harness and are never passed to the provider.</li>

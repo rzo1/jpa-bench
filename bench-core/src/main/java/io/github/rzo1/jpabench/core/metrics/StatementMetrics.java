@@ -26,30 +26,25 @@ import net.ttddyy.dsproxy.StatementType;
 import net.ttddyy.dsproxy.listener.QueryExecutionListener;
 
 /**
- * Counts every statement a provider sends through the metered DataSource. Registered as a datasource-proxy
- * listener; the JDBC work done by the harness itself (loading, resetting) uses the raw pool and is not counted.
+ * datasource-proxy listener counting the statements a provider sends through the metered DataSource.
  *
- * <p>Counting rules (identical for every provider):</p>
  * <ul>
- *   <li>Statements by kind count logical statements: a JDBC batch of a prepared statement with {@code n}
- *       parameter sets counts {@code n}.</li>
- *   <li>{@code executions} counts round trips: one per {@code execute*} call, one per {@code executeBatch}.</li>
- *   <li>{@code batches} counts {@code executeBatch} calls, {@code batchedRows} the parameter sets (or statements)
- *       they contained.</li>
- *   <li>{@code sqlChars} sums the SQL text length of every execution; a batch counts each distinct text once.</li>
- *   <li>{@code selectJoins} sums the joins of all executed SELECTs ({@link SqlClassifier#joins}: JOIN keywords
- *       plus theta joins), {@code selectMaxChars} is the longest SELECT since the last {@link #resetMax()}.</li>
+ *   <li>Statements by kind are logical: a prepared batch with {@code n} parameter sets counts {@code n}.</li>
+ *   <li>{@code executions} counts round trips ({@code execute*} and {@code executeBatch} calls).</li>
+ *   <li>{@code batches} counts {@code executeBatch} calls, {@code batchedRows} their parameter sets.</li>
+ *   <li>{@code sqlChars} sums the SQL length per execution; a batch counts each distinct text once.</li>
+ *   <li>{@code selectJoins} sums the {@link SqlClassifier#joins} of all SELECTs.</li>
  * </ul>
  */
 public final class StatementMetrics implements QueryExecutionListener {
 
-    /** Environment variable naming the directory for the distinct SQL sidecar files. */
+    /** Environment variable with the directory for the captured SQL files. */
     public static final String ENV_SQL_DIR = "JPABENCH_SQL_DIR";
 
-    /** The single instance; benchmarks are single threaded per fork. */
+    /** The single instance. */
     public static final StatementMetrics INSTANCE = new StatementMetrics();
 
-    /** Immutable view of the counters at one point in time. */
+    /** Counter values at one point in time. */
     public record Snapshot(long select, long insert, long update, long delete, long other, long executions,
                            long batches, long batchedRows, long sqlChars, long selectJoins) {
 
@@ -127,7 +122,7 @@ public final class StatementMetrics implements QueryExecutionListener {
                 selectJoins);
     }
 
-    /** Longest SELECT text since the last {@link #resetMax()}. */
+    /** Returns the length of the longest SELECT since the last {@link #resetMax()}. */
     public synchronized long selectMaxChars() {
         return selectMaxChars;
     }
@@ -141,7 +136,7 @@ public final class StatementMetrics implements QueryExecutionListener {
         capturing = enabled;
     }
 
-    /** Returns and clears the distinct SQL texts recorded so far. */
+    /** Returns and clears the recorded distinct SQL texts. */
     public synchronized Collection<String> drainCaptured() {
         List<String> result = List.copyOf(captured);
         captured.clear();

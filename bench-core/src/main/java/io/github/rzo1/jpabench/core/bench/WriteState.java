@@ -29,10 +29,8 @@ import io.github.rzo1.jpabench.data.OrderMaintenance;
 import io.github.rzo1.jpabench.data.OrderMaintenance.OrderState;
 
 /**
- * State of the write benchmarks. The dataset is loaded once per trial; before every iteration the ORDERS and
- * ORDER_LINE tables are reset with plain JDBC: rows inserted by the benchmark are deleted and the orders the
- * update benchmarks may modify (ids {@code 1..window}) get their captured state back. On PostgreSQL the two
- * tables are then vacuumed and analyzed, so dead row versions of the previous iteration do not pile up.
+ * State of the write benchmarks. Before every iteration ORDERS and ORDER_LINE are reset with plain JDBC: inserted
+ * rows are deleted, orders {@code 1..window} are restored and, on PostgreSQL, both tables are vacuumed.
  */
 @State(Scope.Benchmark)
 public class WriteState {
@@ -82,14 +80,14 @@ public class WriteState {
         fixture.close();
     }
 
-    /** Reserves {@code count} new, never used order ids and returns the first. */
+    /** Reserves {@code count} unused order ids and returns the first. */
     long reserveOrderIds(int count) {
         long first = nextOrderId;
         nextOrderId += count;
         return first;
     }
 
-    /** Reserves {@code count} new, never used order line ids and returns the first. */
+    /** Reserves {@code count} unused order line ids and returns the first. */
     long reserveLineIds(int count) {
         long first = nextLineId;
         nextLineId += count;

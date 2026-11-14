@@ -24,8 +24,8 @@ import io.github.rzo1.jpabench.data.DataGenerator;
 import io.github.rzo1.jpabench.data.Database;
 
 /**
- * Prints the provider, library versions and the resolved settings of this runner as JSON. Used by run.sh to
- * write metadata.json: {@code java -cp benchmarks.jar io.github.rzo1.jpabench.core.ProviderInfo [db]}.
+ * Prints the provider, library versions and resolved settings of a runner as JSON for run.sh's metadata.json.
+ * Usage: {@code java -cp benchmarks.jar io.github.rzo1.jpabench.core.ProviderInfo [db]}.
  */
 public final class ProviderInfo {
 

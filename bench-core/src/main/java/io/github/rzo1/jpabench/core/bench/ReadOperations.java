@@ -38,10 +38,8 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Root;
 
 /**
- * The read operations, shared by {@link ReadBenchmarks} (random inputs) and {@link Verification} (fixed inputs).
- * Every operation uses a fresh EntityManager and transaction, touches exactly the data it is supposed to load and
- * returns a checksum of it. The checksum depends only on the data, never on the provider: for the same input every
- * provider must return the same value.
+ * Read operations shared by {@link ReadBenchmarks} and {@link Verification}. Each runs in its own transaction and
+ * returns a checksum of the loaded data, which must be the same for every provider.
  */
 final class ReadOperations {
 
@@ -51,7 +49,7 @@ final class ReadOperations {
     static final int PRODUCTS = 10;
     /** Persons per inheritance query. */
     static final int PERSONS = 50;
-    /** Page size of the pagination benchmark; at most {@link #MAX_PAGES} different pages are read. */
+    /** Page size and number of distinct pages of the pagination benchmark. */
     static final int PAGE_SIZE = 20;
     static final int MAX_PAGES = 50;
     /** Maximum rows of the criteria query and the DTO projection. */
@@ -61,7 +59,7 @@ final class ReadOperations {
     static final int AGGREGATION_DAYS = 30;
     /** Orders streamed by the large result benchmark. */
     static final int STREAM_ORDERS = 2_000;
-    /** Customers of the criteria query are created on or after {@code CRITERIA_EPOCH + n days}. */
+    /** The criteria query selects customers created on or after {@code CRITERIA_EPOCH + n} days. */
     static final LocalDate CRITERIA_EPOCH = LocalDate.of(2020, 1, 1);
     static final int CRITERIA_DAYS = 730;
 

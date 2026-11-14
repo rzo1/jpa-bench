@@ -46,11 +46,7 @@ import io.github.rzo1.jpabench.data.DataGenerator;
 import io.github.rzo1.jpabench.data.DatasetInfo;
 
 /**
- * Read benchmarks. Every operation ({@link ReadOperations}) uses a fresh EntityManager and transaction, picks its
- * input with a seeded random generator and touches exactly the data the operation is supposed to load, folding it
- * into a checksum that is consumed by the {@link Blackhole}. Before the first iteration of every trial,
- * {@link ReadState} runs all operations once with fixed inputs and logs their checksums ({@link Verification}), so
- * run.sh can check that every provider returns the same results.
+ * Read benchmarks on {@link ReadOperations} with inputs from a seeded random generator.
  */
 @State(Scope.Thread)
 @BenchmarkMode({Mode.Throughput, Mode.AverageTime})
@@ -71,7 +67,7 @@ public class ReadBenchmarks {
         return 1 + random.nextLong(max);
     }
 
-    /** First id of a window of {@code size} consecutive ids within {@code [1, max]}. */
+    /** Returns the first id of a window of {@code size} consecutive ids within {@code [1, max]}. */
     private long randomWindow(long max, int size) {
         return 1 + random.nextLong(Math.max(1, max - size + 1));
     }
