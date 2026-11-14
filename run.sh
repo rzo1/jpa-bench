@@ -17,7 +17,8 @@
 # Runs the benchmark matrix runner x database x dataset, strictly one run after another, and writes
 #
 #   results/<timestamp>/metadata.json                        versions, JDK, OS, CPU, DB image, seed, git commit
-#   results/<timestamp>/<runner>-<db>-<dataset>.json         JMH results (-rf json), modes thrpt + avgt
+#   results/<timestamp>/<runner>-<db>-<dataset>.json         JMH results (-rf json): reads thrpt + avgt,
+#                                                            writes ss with a fixed batch per iteration
 #   results/<timestamp>/<runner>-<db>-bootstrap.json         emfBootstrap, mode ss
 #   results/<timestamp>/sql/<runner>-<db>-<dataset>/*.sql    distinct SQL of the first iteration per benchmark
 #   results/<timestamp>/logs/*.log                           complete JMH console output
@@ -63,8 +64,11 @@ JMH settings:
   --forks N               forks per benchmark (default: $FORKS)
   --warmup-iterations N   (default: $WARMUP_ITERATIONS)
   --iterations N          (default: $ITERATIONS)
-  --warmup-time T         (default: $WARMUP_TIME)
-  --time T                measurement iteration time (default: $TIME)
+  --warmup-time T         (default: $WARMUP_TIME; read benchmarks only)
+  --time T                measurement iteration time (default: $TIME; read benchmarks only)
+                          Write benchmarks run in single shot mode with a fixed batch of operations per
+                          iteration (@Warmup/@Measurement(batchSize) in WriteBenchmarks), the iteration counts
+                          above apply to them too.
   --bootstrap-iterations N  measured emfBootstrap shots per fork (default: $BOOTSTRAP_ITERATIONS)
   --jvm-args "ARGS"       replaces the fork JVM arguments (JMH -jvmArgs; default from @Fork(jvmArgs): -Xms2g -Xmx2g)
   --smoke                 1 fork, 1 warmup + 1 measurement iteration of 1s (checks that everything runs)
@@ -181,7 +185,7 @@ DOCKER_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || ec
     echo "  \"docker\": \"$(json_escape "$DOCKER_VERSION")\","
     echo "  \"postgres\": {\"image\": \"${JPABENCH_PG_IMAGE:-postgres:18.1}\", \"cpus\": ${JPABENCH_PG_CPUS:-2}, \"memoryMb\": ${JPABENCH_PG_MEMORY_MB:-2048}, \"external\": \"$(json_escape "${JPABENCH_PG_URL:-}")\"},"
     echo "  \"matrix\": {\"runners\": \"$RUNNERS\", \"dbs\": \"$DBS\", \"datasets\": \"$DATASETS\", \"include\": \"$(json_escape "$INCLUDE")\"},"
-    echo "  \"jmh\": {\"modes\": \"thrpt,avgt\", \"forks\": $FORKS, \"warmupIterations\": $WARMUP_ITERATIONS, \"iterations\": $ITERATIONS, \"warmupTime\": \"$WARMUP_TIME\", \"time\": \"$TIME\", \"bootstrapWarmup\": $BOOTSTRAP_WARMUP, \"bootstrapIterations\": $BOOTSTRAP_ITERATIONS, \"jvmArgs\": \"$(json_escape "$JVM_ARGS")\"},"
+    echo "  \"jmh\": {\"modes\": \"ReadBenchmarks thrpt,avgt; WriteBenchmarks ss (fixed batch per iteration)\", \"forks\": $FORKS, \"warmupIterations\": $WARMUP_ITERATIONS, \"iterations\": $ITERATIONS, \"warmupTime\": \"$WARMUP_TIME\", \"time\": \"$TIME\", \"bootstrapWarmup\": $BOOTSTRAP_WARMUP, \"bootstrapIterations\": $BOOTSTRAP_ITERATIONS, \"jvmArgs\": \"$(json_escape "$JVM_ARGS")\"},"
     echo "  \"runners\": {"
     first=true
     for runner in $RUNNERS; do
@@ -208,7 +212,7 @@ for runner in $RUNNERS; do
             name="$runner-$db-$dataset"
             log "$name"
             JPABENCH_SQL_DIR="$OUT/sql/$name" "$JAVA_BIN" -jar "$jar" "$INCLUDE" -e emfBootstrap \
-                "${JMH_COMMON[@]}" -bm thrpt,avgt -tu ms \
+                "${JMH_COMMON[@]}" -tu ms \
                 -wi "$WARMUP_ITERATIONS" -i "$ITERATIONS" -w "$WARMUP_TIME" -r "$TIME" \
                 -p db="$db" -p dataset="$dataset" \
                 -rf json -rff "$OUT/$name.json" 2>&1 | tee "$OUT/logs/$name.log"

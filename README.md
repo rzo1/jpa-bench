@@ -83,6 +83,19 @@ Parameters: `db` (`h2`, `postgresql`), `dataset` (`S`, `M`, `L`: 1k/10k/50k cust
 1-5 lines per order, 500/5k/25k products, 1k/10k/50k persons per hierarchy) and `entities` (rows per write
 operation, default 50).
 
+### Modes
+
+- **Read benchmarks** (`ReadBenchmarks`): Throughput and AverageTime with time-bound iterations. They never
+  modify data, so a faster provider doing more operations per iteration changes nothing for the next one.
+- **Write benchmarks** (`WriteBenchmarks`): SingleShotTime with a **fixed batch of 200 operations per
+  iteration** (`@Warmup/@Measurement(batchSize = 200)`), tables reset before every iteration. Every provider
+  therefore writes exactly the same rows per iteration and starts each iteration from the same table sizes;
+  in a time-bound mode a faster provider would write more rows and work against bigger tables, more garbage
+  (H2 lives in the benchmark heap) and more dead rows (PostgreSQL). The score is milliseconds per operation
+  (iteration time / batch size); per-invocation setup (JDBC insert of the rows `removeBatch`/`bulkDelete`
+  delete) is not timed.
+- **`emfBootstrap`**: SingleShotTime, see below.
+
 ## Statement metrics
 
 The pool is wrapped with [datasource-proxy](https://github.com/jdbc-observations/datasource-proxy); everything a
@@ -122,8 +135,8 @@ Each implemented runner produces `<runner>/target/benchmarks.jar`.
 ./run.sh --help
 ```
 
-Results are written to `results/<timestamp>/`: one JMH JSON per `<runner>-<db>-<dataset>.json` (modes
-Throughput and AverageTime), `<runner>-<db>-bootstrap.json` (emfBootstrap, single shot), `metadata.json`
+Results are written to `results/<timestamp>/`: one JMH JSON per `<runner>-<db>-<dataset>.json` (reads:
+Throughput and AverageTime, writes: single shot with a fixed batch), `<runner>-<db>-bootstrap.json` (emfBootstrap, single shot), `metadata.json`
 (versions, JDK, OS, CPU, database image, seed, git commit), `sql/` and `logs/`.
 
 A single runner jar can also be used directly with all JMH options:

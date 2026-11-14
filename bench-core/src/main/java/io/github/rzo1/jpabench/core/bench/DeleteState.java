@@ -34,8 +34,8 @@ import io.github.rzo1.jpabench.data.Rows.OrderRow;
 /**
  * State of the delete benchmarks. Before every invocation {@link WriteState#entities} fresh orders with
  * {@value #LINES} lines each are inserted with plain JDBC (unmeasured, uncounted); the benchmark deletes exactly
- * those, so the dataset never runs out of rows to delete. Delete operations take milliseconds, which keeps the
- * per-invocation setup cost negligible for JMH.
+ * those, so the dataset never runs out of rows to delete. In single shot mode JMH times only the benchmark method
+ * calls of a batch, not this per-invocation setup.
  */
 @State(Scope.Benchmark)
 public class DeleteState extends WriteState {

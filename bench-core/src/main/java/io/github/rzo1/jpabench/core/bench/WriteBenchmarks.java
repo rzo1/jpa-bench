@@ -45,15 +45,24 @@ import io.github.rzo1.jpabench.model.PurchaseOrder;
 /**
  * Write benchmarks. Each operation writes {@link WriteState#entities} orders in one transaction of a fresh
  * EntityManager (bulk operations: a fixed id range).
+ *
+ * <p>Every provider does the same amount of work per iteration: the benchmarks run in
+ * {@link Mode#SingleShotTime} with a fixed batch of {@value #BATCH} operations per iteration, and the tables are
+ * reset before every iteration. In a time-bound mode (throughput, average time) a faster provider would write more
+ * rows per iteration and then work against bigger tables, more garbage (H2 lives in the benchmark heap) and more
+ * dead rows (PostgreSQL) than a slower one. The score is the time of one iteration divided by the batch size,
+ * i.e. milliseconds per operation.</p>
  */
 @State(Scope.Thread)
-@BenchmarkMode({Mode.Throughput, Mode.AverageTime})
+@BenchmarkMode(Mode.SingleShotTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Warmup(iterations = 5, time = 10)
-@Measurement(iterations = 5, time = 10)
+@Warmup(iterations = 10, batchSize = WriteBenchmarks.BATCH)
+@Measurement(iterations = 10, batchSize = WriteBenchmarks.BATCH)
 @Fork(value = 2, jvmArgs = {"-Xms2g", "-Xmx2g"})
 public class WriteBenchmarks {
 
+    /** Operations per iteration (JMH batch size); run.sh passes the same value with -bs/-wbs. */
+    static final int BATCH = 200;
     /** Lines per persisted order. */
     static final int LINES = 3;
     /** Rows changed by one bulk update, as a multiple of {@code entities}. */
