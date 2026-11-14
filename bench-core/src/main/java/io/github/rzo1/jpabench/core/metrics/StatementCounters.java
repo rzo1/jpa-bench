@@ -42,6 +42,10 @@ import org.openjdk.jmh.infra.BenchmarkParams;
  * {@code rawData} of the metric in the JMH JSON (which bench-viz uses), or the score divided by
  * iterations x forks.</p>
  *
+ * <p>The counters are global per JVM ({@link StatementMetrics#INSTANCE}), so benchmarks must run with one thread
+ * ({@code -t 1}, the default); a trial with more threads fails. When metering is off
+ * ({@link io.github.rzo1.jpabench.core.env.BenchEnvironment#ENV_METERING}) every counter is 0.</p>
+ *
  * <p>The distinct SQL texts of the first iteration of every trial are written to
  * {@code $JPABENCH_SQL_DIR/<benchmark>-<mode>-<params>.sql} when that environment variable is set.</p>
  */
@@ -59,6 +63,10 @@ public class StatementCounters {
 
     @Setup(Level.Trial)
     public void beginTrial(BenchmarkParams params) {
+        if (params.getThreads() != 1) {
+            throw new IllegalStateException("Statement counters are global per JVM: run with one thread (-t 1), not "
+                    + params.getThreads());
+        }
         Map<String, String> sorted = new TreeMap<>();
         for (String key : params.getParamsKeys()) {
             sorted.put(key, params.getParam(key));

@@ -19,6 +19,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.sql.DataSource;
@@ -46,11 +47,20 @@ public final class BenchEnvironment implements AutoCloseable {
     /** The name of the persistence unit in bench-core's META-INF/persistence.xml. */
     public static final String PERSISTENCE_UNIT = "jpa-bench";
 
+    /**
+     * Environment variable switching the statement metering: {@code on} (default) hands the provider the pool
+     * wrapped with datasource-proxy, {@code off} hands it the plain pool. Metering costs time on every statement
+     * (proxying and SQL classification), so run.sh measures time unmetered and counts statements in a separate,
+     * short metered run.
+     */
+    public static final String ENV_METERING = "JPABENCH_METERING";
+
     private final Database database;
     private final ProviderSettings settings;
     private final DatabaseServer server;
     private final HikariDataSource pool;
     private final DataSource metered;
+    private final boolean metering;
 
     private BenchEnvironment(Database database, ProviderSettings settings, DatabaseServer server,
                              HikariDataSource pool) {
@@ -58,9 +68,23 @@ public final class BenchEnvironment implements AutoCloseable {
         this.settings = settings;
         this.server = server;
         this.pool = pool;
-        this.metered = ProxyDataSourceBuilder.create("jpa-bench", pool)
-                .listener(StatementMetrics.INSTANCE)
-                .build();
+        this.metering = meteringEnabled();
+        this.metered = metering
+                ? ProxyDataSourceBuilder.create("jpa-bench", pool).listener(StatementMetrics.INSTANCE).build()
+                : pool;
+    }
+
+    /** Whether statement metering is on for this JVM ({@value #ENV_METERING}, default on). */
+    public static boolean meteringEnabled() {
+        String value = System.getenv(ENV_METERING);
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+        return switch (value.strip().toLowerCase(Locale.ROOT)) {
+            case "on", "true" -> true;
+            case "off", "false" -> false;
+            default -> throw new IllegalArgumentException(ENV_METERING + " must be on or off, not " + value);
+        };
     }
 
     /** Starts the database and the connection pool. */
@@ -97,7 +121,15 @@ public final class BenchEnvironment implements AutoCloseable {
         return pool;
     }
 
-    /** The pool wrapped with the statement metering proxy; the only DataSource a provider ever sees. */
+    /** Whether the provider's statements are counted (see {@link #ENV_METERING}). */
+    public boolean metering() {
+        return metering;
+    }
+
+    /**
+     * The only DataSource a provider ever sees: the pool wrapped with the statement metering proxy, or the plain
+     * pool when metering is off.
+     */
     public DataSource meteredDataSource() {
         return metered;
     }
@@ -147,7 +179,8 @@ public final class BenchEnvironment implements AutoCloseable {
             product = "unknown (" + e.getMessage() + ")";
         }
         return "provider " + settings.providerName() + " " + settings.providerVersion() + " on "
-                + server.description() + " [" + product + "] settings " + settings.providerProperties();
+                + server.description() + " [" + product + "] metering " + (metering ? "on" : "off") + " settings "
+                + settings.providerProperties();
     }
 
     public void log(String message) {
