@@ -37,15 +37,11 @@ jobs:
       - name: Build
         run: ./mvnw -B package
       - name: Smoke run on H2, all runners
-        # Checks that every benchmark of every runner executes and that all runners return the same results
-        # (run.sh fails when a job fails; verification-mismatches.txt is checked below).
-        run: ./run.sh --smoke --skip-build --dbs h2 --datasets S --out results
-      - name: No result mismatches between providers
-        run: |
-          if ls results/*/verification-mismatches.txt > /dev/null 2>&1; then
-            cat results/*/verification-mismatches.txt
-            exit 1
-          fi
+        run: ./run.sh --smoke --skip-build --dbs h2 --datasets S --out results --contributor ci
+      - uses: astral-sh/setup-uv@v6
+      - name: Validate the run (complete, same results for all providers, reference data)
+        working-directory: bench-viz
+        run: uv run jpa-bench-viz validate ../results
       - uses: actions/upload-artifact@v4
         if: always()
         with:
