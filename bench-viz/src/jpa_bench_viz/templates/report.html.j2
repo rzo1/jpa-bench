@@ -119,9 +119,12 @@ pre.sql { background: var(--surface); border: 1px solid var(--rule); border-radi
   <div><dt>OS</dt><dd>{{ metadata.os.name }} {{ metadata.os.release }} {{ metadata.os.arch }}</dd></div>
   <div><dt>CPU</dt><dd>{{ metadata.cpu.model }}, {{ metadata.cpu.cores }} cores, {{ ((metadata.cpu.memoryBytes or 0) / 1073741824) | round(1) }} GiB</dd></div>
   <div><dt>Docker</dt><dd>{{ metadata.docker }}</dd></div>
-  <div><dt>PostgreSQL</dt><dd>{% if metadata.postgres.external %}external {{ metadata.postgres.external }}{% else %}{{ metadata.postgres.image }}, {{ metadata.postgres.cpus }} CPUs, {{ metadata.postgres.memoryMb }} MB{% endif %}</dd></div>
+  <div><dt>PostgreSQL</dt><dd>{% if metadata.postgres.external %}external {{ metadata.postgres.external }}{% else %}{{ metadata.postgres.image }}, {{ metadata.postgres.cpus }} CPUs, {{ metadata.postgres.memoryMb }} MB{% if metadata.postgres.settings %}, {{ metadata.postgres.settings }}{% endif %}{% endif %}</dd></div>
   <div><dt>JMH</dt><dd>{{ metadata.jmh.forks }} forks, {{ metadata.jmh.warmupIterations }} × {{ metadata.jmh.warmupTime }} warmup, {{ metadata.jmh.iterations }} × {{ metadata.jmh.time }} measurement{% if metadata.jmh.jvmArgs %}, JVM {{ metadata.jmh.jvmArgs }}{% endif %}</dd></div>
-  <div><dt>Bootstrap</dt><dd>{{ metadata.jmh.bootstrapWarmup }} warmup + {{ metadata.jmh.bootstrapIterations }} measured shots per fork</dd></div>
+  <div><dt>Bootstrap</dt><dd>warm: {{ metadata.jmh.bootstrapWarmup }} warmup + {{ metadata.jmh.bootstrapIterations }} measured shots per fork{% if metadata.jmh.coldForks %}; cold start: first shot of {{ metadata.jmh.coldForks }} fresh JVMs{% endif %}</dd></div>
+  {% if metadata.metering %}<div><dt>Statement metering</dt><dd>{% if metadata.metering.mode == "separate" %}separate metered run ({{ metadata.metering.forks }} fork, {{ metadata.metering.warmupIterations }} + {{ metadata.metering.iterations }} × {{ metadata.metering.time }}); times are unmetered{% elif metadata.metering.mode == "inline" %}inline: times include the metering overhead{% else %}off{% endif %}</dd></div>{% endif %}
+  {% if metadata.order %}<div><dt>Order</dt><dd>{{ metadata.order.mode }}{% if metadata.order.seed %} (seed {{ metadata.order.seed }}){% endif %}</dd></div>{% endif %}
+  {% if metadata.build %}<div><dt>Build profiles</dt><dd>{{ metadata.build.profiles or "none" }}</dd></div>{% endif %}
   <div><dt>Matrix</dt><dd>{{ metadata.matrix.dbs }}; datasets {{ metadata.matrix.datasets }}</dd></div>
   {% set first = (metadata.runners or {}).values() | list | first %}
   {% if first %}<div><dt>Seed</dt><dd>{{ first.seed }}</dd></div>{% endif %}

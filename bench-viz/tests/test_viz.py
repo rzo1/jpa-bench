@@ -20,10 +20,18 @@ import math
 import shutil
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from jpa_bench_viz.cli import main
-from jpa_bench_viz.results import load, sql_file_name, statement_table, verification_mismatches
+from jpa_bench_viz.results import (
+    load,
+    provider_label,
+    scope_label,
+    sql_file_name,
+    statement_table,
+    verification_mismatches,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "run"
 
@@ -40,7 +48,8 @@ def test_load_reads_scores_and_ignores_empty_files() -> None:
     assert set(scores["db"]) == {"h2"}
     # one iteration: JMH writes "NaN" as score error, which becomes 0
     assert (scores["error"] == 0).all()
-    assert results.provider_label("runner-hibernate-7") == "Hibernate ORM 7.4.15.Final"
+    assert results.provider_label("runner-hibernate-7") == "Hibernate ORM 7.4.15.Final (not enhanced)"
+    assert results.provider_label("runner-openjpa-4.2").endswith("(enhanced)")
 
 
 def test_relative_is_one_for_the_fastest_provider_in_both_modes() -> None:
@@ -171,3 +180,75 @@ def test_verification_flags_operations_with_different_results(tmp_path: Path) ->
         '<tr class="mismatch"><td class="text">H2 (in-memory), dataset S</td><td class="text">joinFetch'
         in html
     )
+
+
+def test_labels_name_the_enhancement() -> None:
+    def label(name: str, enhancement: str) -> str:
+        harness = {
+            "bench.provider.name": name,
+            "bench.provider.version": "1.0",
+            "bench.provider.enhancement": enhancement,
+        }
+        return provider_label({"runners": {"r": {"harness": harness}}}, "r")
+
+    assert label("EclipseLink", "none") == "EclipseLink 1.0 (not woven)"
+    assert label("EclipseLink", "static weaving (build time)") == "EclipseLink 1.0 (woven)"
+    assert (
+        label("Hibernate ORM", "build-time (lazy initialization, dirty tracking)")
+        == "Hibernate ORM 1.0 (enhanced)"
+    )
+    assert provider_label({}, "runner-x") == "x"
+
+
+def test_separate_metering_takes_metrics_only_from_the_metered_runs(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    shutil.copytree(FIXTURE, run)
+    metadata = json.loads((run / "metadata.json").read_text(encoding="utf-8"))
+    metadata["metering"] = {"mode": "separate"}
+    (run / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    (run / "metrics").mkdir()
+    # the metered run of hibernate only; its counters are doubled to tell them apart
+    entries = json.loads((run / "runner-hibernate-7-h2-S.json").read_text(encoding="utf-8"))
+    for entry in entries:
+        for metric in entry["secondaryMetrics"].values():
+            metric["rawData"] = [[2 * v for v in fork] for fork in metric["rawData"]]
+        entry["primaryMetric"]["score"] = 1e9
+    (run / "metrics" / "runner-hibernate-7-h2-S.json").write_text(json.dumps(entries), encoding="utf-8")
+
+    original = load(FIXTURE)
+    results = load(run)
+    # times still come from the timed run
+    assert results.scores["score"].max() < 1e9
+    assert set(results.metrics["runner"]) == {"runner-hibernate-7"}
+    assert set(results.metrics["dataset"]) == {"S"}
+
+    def selects(frame: pd.DataFrame) -> float:
+        rows = frame[
+            (frame["runner"] == "runner-hibernate-7")
+            & (frame["benchmark"] == "findById")
+            & (frame["mode"] == "thrpt")
+            & (frame["metric"] == "stmtSelect")
+        ]
+        return float(rows["per_op"].iloc[0])
+
+    assert selects(results.metrics) == pytest.approx(2 * selects(original.metrics))
+
+
+def test_scope_labels_tell_warm_and_cold_bootstrap_apart() -> None:
+    assert scope_label("h2", "bootstrap") == "H2 (in-memory), EMF bootstrap (warm)"
+    assert scope_label("postgresql", "coldstart") == "PostgreSQL, EMF bootstrap (cold start)"
+    assert scope_label("h2", "S") == "H2 (in-memory), dataset S"
+
+
+def test_single_shot_batches_are_reported_per_operation(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    shutil.copytree(FIXTURE, run)
+    path = run / "runner-hibernate-7-h2-bootstrap.json"
+    entries = json.loads(path.read_text(encoding="utf-8"))
+    single = entries[0]["primaryMetric"]["score"]
+    entries[0]["measurementBatchSize"] = 200
+    entries[0]["primaryMetric"]["score"] = single * 200
+    path.write_text(json.dumps(entries), encoding="utf-8")
+    scores = load(run).scores
+    row = scores[(scores["runner"] == "runner-hibernate-7") & (scores["dataset"] == "bootstrap")]
+    assert float(row["score"].iloc[0]) == pytest.approx(single)

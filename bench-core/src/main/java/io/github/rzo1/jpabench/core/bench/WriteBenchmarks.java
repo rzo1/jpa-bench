@@ -50,8 +50,9 @@ import io.github.rzo1.jpabench.model.PurchaseOrder;
  * {@link Mode#SingleShotTime} with a fixed batch of {@value #BATCH} operations per iteration, and the tables are
  * reset before every iteration. In a time-bound mode (throughput, average time) a faster provider would write more
  * rows per iteration and then work against bigger tables, more garbage (H2 lives in the benchmark heap) and more
- * dead rows (PostgreSQL) than a slower one. The score is the time of one iteration divided by the batch size,
- * i.e. milliseconds per operation.</p>
+ * dead rows (PostgreSQL) than a slower one. JMH reports the time of the whole batch (although its unit says
+ * ms/op); bench-viz divides it by {@code measurementBatchSize} from the JMH JSON to get milliseconds per
+ * operation.</p>
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.SingleShotTime)

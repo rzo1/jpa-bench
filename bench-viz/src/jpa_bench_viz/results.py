@@ -32,11 +32,18 @@ KNOWN_RUNNERS: tuple[str, ...] = (
     "runner-hibernate-7",
     "runner-eclipselink-4",
     "runner-eclipselink-5",
+    "runner-eclipselink-4-woven",
+    "runner-eclipselink-5-woven",
 )
 
 KNOWN_DBS: tuple[str, ...] = ("h2", "postgresql")
 DB_LABELS: dict[str, str] = {"h2": "H2 (in-memory)", "postgresql": "PostgreSQL"}
-DATASET_ORDER: tuple[str, ...] = ("S", "M", "L", "bootstrap")
+DATASET_ORDER: tuple[str, ...] = ("S", "M", "L", "bootstrap", "coldstart")
+# "datasets" of the emfBootstrap files
+BOOTSTRAP_LABELS: dict[str, str] = {
+    "bootstrap": "EMF bootstrap (warm)",
+    "coldstart": "EMF bootstrap (cold start)",
+}
 
 MODE_LABELS: dict[str, str] = {
     "thrpt": "Throughput",
@@ -90,18 +97,34 @@ class Results:
 
 
 def provider_label(metadata: dict[str, Any], runner: str) -> str:
-    """Human readable provider name and version of a runner, e.g. ``Hibernate ORM 7.4.15.Final``."""
+    """Provider, version and enhancement of a runner, e.g. ``EclipseLink 5.0.2 (not woven)``.
+
+    The enhancement is part of every label because it changes what a provider does (EclipseLink without
+    weaving loads to-one LAZY associations eagerly), so results of one provider with and without it differ.
+    """
     harness = metadata.get("runners", {}).get(runner, {}).get("harness", {})
     name = harness.get("bench.provider.name")
     version = harness.get("bench.provider.version")
-    if name and version:
-        return f"{name} {version}"
-    return runner.removeprefix("runner-")
+    base = f"{name} {version}" if name and version else runner.removeprefix("runner-")
+    enhancement = enhancement_label(harness.get("bench.provider.enhancement"), name or runner)
+    return f"{base} ({enhancement})" if enhancement else base
+
+
+def enhancement_label(enhancement: str | None, provider: str) -> str:
+    """Short form of ``bench.provider.enhancement``: enhanced / not enhanced, woven / not woven."""
+    if not enhancement:
+        return ""
+    weaving = "eclipselink" in provider.lower()
+    if enhancement.strip().lower() in ("none", "false", "off"):
+        return "not woven" if weaving else "not enhanced"
+    if weaving or "weav" in enhancement.lower():
+        return "woven"
+    return "enhanced"
 
 
 def scope_label(db: str, dataset: str) -> str:
-    """``H2 (in-memory), dataset S`` or ``PostgreSQL, EMF bootstrap``."""
-    what = "EMF bootstrap" if dataset == "bootstrap" else f"dataset {dataset}"
+    """``H2 (in-memory), dataset S`` or ``PostgreSQL, EMF bootstrap (warm)``."""
+    what = BOOTSTRAP_LABELS.get(dataset, f"dataset {dataset}")
     return f"{DB_LABELS.get(db, db)}, {what}"
 
 
@@ -184,25 +207,16 @@ def load(directory: Path | str) -> Results:
     metadata = load_metadata(directory)
     score_rows: list[dict[str, Any]] = []
     metric_rows: list[dict[str, Any]] = []
+    # run.sh --metering separate (default) or off: the timed runs (<name>.json) ran unmetered, their counters
+    # are all 0 and ignored; the statement metrics come from the short metered runs (metrics/<name>.json).
+    # --metering inline (and results without the setting): the timed runs carry the metrics.
+    timed_metered = metadata.get("metering", {}).get("mode", "inline") == "inline"
     for path in sorted(directory.glob("*.json")):
         if path.name == "metadata.json":
             continue
-        match = _FILE_PATTERN.match(path.name)
-        if match is None:
-            continue
-        text = path.read_text(encoding="utf-8").strip()
-        if not text:
-            # run.sh creates the file only when JMH finishes; an empty file is an aborted or running run
-            continue
-        try:
-            entries = json.loads(text)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(entries, list):
-            continue
-        runner = match["runner"]
-        for entry in entries:
-            _read_entry(entry, runner, match["db"], match["dataset"], path.name, score_rows, metric_rows)
+        _read_file(path, score_rows, metric_rows if timed_metered else [])
+    for path in sorted((directory / "metrics").glob("*.json")):
+        _read_file(path, [], metric_rows)
 
     scores = pd.DataFrame(score_rows, columns=_SCORE_COLUMNS)
     metrics = pd.DataFrame(metric_rows, columns=_METRIC_COLUMNS)
@@ -218,6 +232,24 @@ def load(directory: Path | str) -> Results:
         runners=runners,
         verification=load_verification(directory),
     )
+
+
+def _read_file(path: Path, score_rows: list[dict[str, Any]], metric_rows: list[dict[str, Any]]) -> None:
+    match = _FILE_PATTERN.match(path.name)
+    if match is None:
+        return
+    text = path.read_text(encoding="utf-8").strip()
+    if not text:
+        # run.sh creates the file only when JMH finishes; an empty file is an aborted or running run
+        return
+    try:
+        entries = json.loads(text)
+    except json.JSONDecodeError:
+        return
+    if not isinstance(entries, list):
+        return
+    for entry in entries:
+        _read_entry(entry, match["runner"], match["db"], match["dataset"], path.name, score_rows, metric_rows)
 
 
 _SCORE_COLUMNS = [
@@ -270,6 +302,9 @@ def _read_entry(
     mode = str(entry.get("mode", ""))
     primary = entry.get("primaryMetric") or {}
     raw = _flatten(primary.get("rawData"))
+    # JMH reports a single shot with a batch (the write benchmarks: @Measurement(batchSize = 200)) as the time
+    # of the whole batch, although the unit says ms/op; divide to get the time per operation
+    batch = _batch_size(entry) if mode == "ss" else 1
     key = {
         "runner": runner,
         "db": db,
@@ -285,8 +320,8 @@ def _read_entry(
             **key,
             "file": file_name,
             "unit": str(primary.get("scoreUnit", "")),
-            "score": _number(primary.get("score")),
-            "error": _number(primary.get("scoreError")),
+            "score": _number(primary.get("score")) / batch,
+            "error": _number(primary.get("scoreError")) / batch,
             "samples": len(raw),
             "forks": int(entry.get("forks", 0) or 0),
             "sql_file": sql_file_name(group, method, mode, all_params),
@@ -298,6 +333,13 @@ def _read_entry(
         # operation per iteration, so the per-operation value is the mean of the raw data.
         per_op = sum(values) / len(values) if values else _number((secondary or {}).get("score"))
         metric_rows.append({**key, "metric": str(name), "per_op": per_op, "samples": len(values)})
+
+
+def _batch_size(entry: dict[str, Any]) -> int:
+    try:
+        return max(1, int(entry.get("measurementBatchSize") or 1))
+    except (TypeError, ValueError):
+        return 1
 
 
 def sql_file_name(group: str, method: str, mode: str, params: dict[str, str]) -> str:

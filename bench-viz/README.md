@@ -25,7 +25,7 @@ Output:
 
 ## What the report shows
 
-Per database and dataset (and per database for the separate `emfBootstrap` run):
+Per database and dataset (and per database for the two `emfBootstrap` runs, warm and cold start):
 
 - **Relative overview** per JMH mode: every benchmark, one bar per provider, normalized to the fastest
   provider (1.0). For throughput that is `score / best`; for time modes `best / score`, so a longer bar is
@@ -38,13 +38,24 @@ Per database and dataset (and per database for the separate `emfBootstrap` run):
 - **Per benchmark** (collapsed): absolute score with error bars per mode, and the distinct SQL texts of the
   first iteration per provider (from `results/<timestamp>/sql/`), to compare the generated SQL side by side.
 
-The environment (`metadata.json`: commit, JDK, OS, CPU, database image, JMH settings) and every provider's
-settings are listed at the top.
+The environment (`metadata.json`: commit, build profiles, JDK, OS, CPU, database image, JMH, metering and order
+settings) and every provider's settings are listed at the top, followed by the **result verification**: the
+checksum every provider returned for each read operation (`verification.tsv`), with operations whose results
+differ between providers flagged, because their scores are not comparable.
+
+Every provider label names the enhancement mode from `bench.provider.enhancement`, e.g.
+`EclipseLink 5.0.2 (not woven)`, `EclipseLink 5.0.2 (woven)`, `Hibernate ORM 7.4.15.Final (not enhanced)`,
+`Apache OpenJPA 4.1.1 (enhanced)`, because it changes what a provider does.
 
 How the numbers are read:
 
 - Results files are matched as `<runner>-<db>-<dataset>.json`; `db` and `dataset` come from the JMH params when
   present. Empty files (an aborted or still running JMH run) are skipped.
+- Statement metrics: with `run.sh --metering separate` (the default) or `off` in `metadata.json` the timed runs
+  were unmetered, so their counters are ignored and the metrics come from `metrics/<runner>-<db>-<dataset>.json`;
+  with `inline` (or no `metering` entry) from the timed runs.
+- Single shot results with a batch (the write benchmarks, `measurementBatchSize` 200) are the time of the whole
+  batch in JMH; they are divided by the batch size, so every score is per operation.
 - JMH sums `@AuxCounters(EVENTS)` counters over iterations and forks in `score`. The counters already are per
   operation per iteration, so the per-operation value is the **mean of the secondary metric's `rawData`**.
 - Statement metrics do not depend on the JMH mode; the throughput run is used, the average time run where
@@ -52,7 +63,8 @@ How the numbers are read:
 - A JMH `scoreError` of `NaN` (a single measurement iteration) is shown as 0: smoke runs have no error
   estimate, and the report says so.
 - Each runner keeps its colour in every chart (fixed order: OpenJPA 4.1, OpenJPA 4.2, Hibernate 6.6,
-  Hibernate 7, EclipseLink 4, EclipseLink 5), regardless of which runners a run contains.
+  Hibernate 7, EclipseLink 4, EclipseLink 5, EclipseLink 4 woven, EclipseLink 5 woven), regardless of which
+  runners a run contains.
 
 ## Development
 
