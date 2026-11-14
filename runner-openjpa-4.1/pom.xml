@@ -27,5 +27,109 @@
 
     <artifactId>runner-openjpa-4.1</artifactId>
     <name>jpa-bench :: runner-openjpa-4.1</name>
-    <description>Benchmark runner for Apache OpenJPA 4.1.1 (stub, not implemented yet; see runner-hibernate-7 for the reference).</description>
+    <description>Benchmark runner for Apache OpenJPA 4.1 (JPA 3.1), model enhanced at build time.</description>
+
+    <properties>
+        <openjpa.version>4.1.1</openjpa.version>
+        <!-- written into bench-provider.properties -->
+        <bench.enhancement>build-time (openjpa-maven-plugin)</bench.enhancement>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-core</artifactId>
+        </dependency>
+        <!-- unpacked into target/classes and enhanced there; the unenhanced jar is not shaded (see below) -->
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-model</artifactId>
+        </dependency>
+        <!-- exactly one provider; it brings its own jakarta.persistence-api (3.1) -->
+        <dependency>
+            <groupId>org.apache.openjpa</groupId>
+            <artifactId>openjpa</artifactId>
+            <version>${openjpa.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <!--
+              OpenJPA needs enhanced entities (runtime enhancement is switched off in bench-provider.properties),
+              so the model classes are unpacked into target/classes and enhanced there at build time. The
+              persistence unit (META-INF/persistence.xml of bench-core) is found by the plugin on the classpath.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>unpack-model</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeArtifactIds>bench-model</includeArtifactIds>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                            <excludes>META-INF/**</excludes>
+                            <!-- always unpack fresh, unenhanced classes so the enhancer sees them on every build -->
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.openjpa</groupId>
+                <artifactId>openjpa-maven-plugin</artifactId>
+                <version>${openjpa.version}</version>
+                <executions>
+                    <execution>
+                        <id>enhance-model</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>enhance</goal>
+                        </goals>
+                        <configuration>
+                            <includes>io/github/rzo1/jpabench/model/*.class</includes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>benchmarks-jar</id>
+                        <configuration>
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>${project.groupId}:bench-model</exclude>
+                                </excludes>
+                            </artifactSet>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

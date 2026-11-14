@@ -25,16 +25,16 @@ settings; run.sh stores them in `metadata.json`.
 
 | Concern | Hibernate ORM 7 | Hibernate ORM 6.6 | OpenJPA 4.1 / 4.2 | EclipseLink 4 / 5 |
 |---|---|---|---|---|
-| provider class | `org.hibernate.jpa.HibernatePersistenceProvider` | TODO | TODO | TODO |
-| DataSource object | `jakarta.persistence.nonJtaDataSource` | TODO | TODO | TODO |
-| no schema generation / validation | `hibernate.hbm2ddl.auto=none` | TODO | TODO (no `openjpa.jdbc.SynchronizeMappings`) | TODO (`eclipselink.ddl-generation=none`) |
-| no provider helper tables | `hibernate.query.mutation_strategy.global_temporary.create_tables=false`, `...drop_tables=false` | TODO | TODO | TODO |
-| JDBC batch size 50 | `hibernate.jdbc.batch_size=${bench.jdbc.batchSize}` | TODO | TODO | TODO |
-| ordered inserts / updates | `hibernate.order_inserts=true`, `hibernate.order_updates=true` | TODO | TODO | TODO |
-| batch versioned updates | `hibernate.jdbc.batch_versioned_data=true` | TODO | TODO | TODO |
-| no L2 cache | `hibernate.cache.use_second_level_cache=false` | TODO | TODO | TODO |
-| no query cache | `hibernate.cache.use_query_cache=false` | TODO | TODO | TODO |
-| statement cache | none in Hibernate (driver defaults) | TODO | TODO | TODO |
+| provider class | `org.hibernate.jpa.HibernatePersistenceProvider` | TODO | `org.apache.openjpa.persistence.PersistenceProviderImpl` | TODO |
+| DataSource object | `jakarta.persistence.nonJtaDataSource` | TODO | `openjpa.ConnectionFactory` (`nonJtaDataSource` is a JNDI name for OpenJPA; `ConnectionFactory2` unset, falls back to the same pool) | TODO |
+| no schema generation / validation | `hibernate.hbm2ddl.auto=none` | TODO | no `openjpa.jdbc.SynchronizeMappings`; default `dynamic` schema factory (does not read the schema) | TODO (`eclipselink.ddl-generation=none`) |
+| no provider helper tables | `hibernate.query.mutation_strategy.global_temporary.create_tables=false`, `...drop_tables=false` | TODO | none needed (application-assigned ids, no sequence table) | TODO |
+| JDBC batch size 50 | `hibernate.jdbc.batch_size=${bench.jdbc.batchSize}` | TODO | `openjpa.jdbc.DBDictionary=batchLimit=${bench.jdbc.batchSize}` (dictionary auto-detected) | TODO |
+| ordered inserts / updates | `hibernate.order_inserts=true`, `hibernate.order_updates=true` | TODO | default `batching-constraint` update manager orders by FK; `openjpa.jdbc.MappingDefaults=ForeignKeyDeleteAction=restrict, JoinForeignKeyDeleteAction=restrict` declares the DDL's FKs logically (without it inserts/deletes are not batched across orders) | TODO |
+| batch versioned updates | `hibernate.jdbc.batch_versioned_data=true` | TODO | default (versioned updates are batched) | TODO |
+| no L2 cache | `hibernate.cache.use_second_level_cache=false` | TODO | `openjpa.DataCache=false` | TODO |
+| no query cache | `hibernate.cache.use_query_cache=false` | TODO | `openjpa.QueryCache=false` | TODO |
+| statement cache | none in Hibernate (driver defaults) | TODO | none in OpenJPA (driver defaults); JPQL/finder SQL caches (`QuerySQLCache`, `FinderCache`) at defaults, like Hibernate's query plan cache | TODO |
 | auto-commit already off | `hibernate.connection.provider_disables_autocommit=true` | TODO | n/a | n/a |
-| no statistics / SQL logging | `hibernate.generate_statistics=false`, `show_sql=false`, `format_sql=false`, `use_sql_comments=false` | TODO | TODO | TODO |
-| bytecode enhancement | none by default; `-Penhance`: build time, lazy initialization + dirty tracking | TODO | build time (required) | TODO (static weaving off by default) |
+| no statistics / SQL logging | `hibernate.generate_statistics=false`, `show_sql=false`, `format_sql=false`, `use_sql_comments=false` | TODO | `openjpa.Log=DefaultLevel=WARN, ... SQL=WARN`, `openjpa.ConnectionFactoryProperties=PrintParameters=false` | TODO |
+| bytecode enhancement | none by default; `-Penhance`: build time, lazy initialization + dirty tracking | TODO | build time (required): `openjpa-maven-plugin`; `openjpa.RuntimeUnenhancedClasses=unsupported`, `openjpa.DynamicEnhancementAgent=false` | TODO (static weaving off by default) |
