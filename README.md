@@ -227,7 +227,7 @@ A runner is a Maven module that contains no Java code:
    and exclude `bench-model` from the shaded jar (property `bench.shade.excludeModel`, see the `enhance`
    profile of `runner-hibernate-7` or the OpenJPA runners).
 4. Add the runner to `<modules>` of the root pom, to `ALL_RUNNERS` in run.sh, to `KNOWN_RUNNERS` in
-   `bench-viz/src/jpa_bench_viz/results.py` (fixed colour), to the CI smoke run, a column to
+   `bench-viz/src/jpa_bench_viz/results.py` and `RUNNER_SLOTS` in `bars.py` (colour), to the CI smoke run, a column to
    [CONFIG.md](CONFIG.md) and a row to the table above, then `./run.sh --smoke --dbs h2 --runners <runner>` and
    check that `verification.tsv` shows no mismatch.
 
@@ -240,8 +240,8 @@ Check out the commit from `metadata.json`, use the same JDK and run `./run.sh` w
 ## Visualisation
 
 `bench-viz/` (Python 3.12+, [uv](https://docs.astral.sh/uv/)) writes one self-contained HTML report per results
-directory: run summary, scores normalized to the fastest provider, statements per operation, SQL per benchmark,
-provider settings, verification. Details in [bench-viz/README.md](bench-viz/README.md).
+directory: run summary, heatmaps of the factor to the fastest provider, bars per benchmark, statements per
+operation, SQL per benchmark, provider settings, verification. Plain HTML and CSS, no JavaScript. Details in [bench-viz/README.md](bench-viz/README.md).
 
 ```bash
 cd bench-viz
