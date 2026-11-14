@@ -23,7 +23,7 @@ settings; run.sh stores them in `metadata.json`.
 
 ## Provider equivalents
 
-| Concern | Hibernate ORM 7 | Hibernate ORM 6.6 | OpenJPA 4.1 / 4.2 | EclipseLink 4 / 5 |
+| Concern | Hibernate ORM 7.4.15.Final | Hibernate ORM 6.6.59.Final | OpenJPA 4.1.1 / 4.2.0-SNAPSHOT | EclipseLink 4.0.10 / 5.0.2 |
 |---|---|---|---|---|
 | provider class | `org.hibernate.jpa.HibernatePersistenceProvider` | `org.hibernate.jpa.HibernatePersistenceProvider` | `org.apache.openjpa.persistence.PersistenceProviderImpl` | `org.eclipse.persistence.jpa.PersistenceProvider` |
 | DataSource object | `jakarta.persistence.nonJtaDataSource` | `jakarta.persistence.nonJtaDataSource` | `openjpa.ConnectionFactory` (`nonJtaDataSource` is a JNDI name for OpenJPA; `ConnectionFactory2` unset, falls back to the same pool) | `jakarta.persistence.nonJtaDataSource` (used as an external pool) |
@@ -37,7 +37,28 @@ settings; run.sh stores them in `metadata.json`.
 | statement cache | none in Hibernate (driver defaults) | none in Hibernate (driver defaults) | none in OpenJPA (driver defaults); JPQL/finder SQL caches (`QuerySQLCache`, `FinderCache`) at defaults, like Hibernate's query plan cache | `eclipselink.jdbc.cache-statements=false` (the default with an external DataSource) |
 | auto-commit already off | `hibernate.connection.provider_disables_autocommit=true` | `hibernate.connection.provider_disables_autocommit=true` | n/a | n/a |
 | no statistics / SQL logging | `hibernate.generate_statistics=false`, `show_sql=false`, `format_sql=false`, `use_sql_comments=false` | same as 7 | `openjpa.Log=DefaultLevel=WARN, ... SQL=WARN`, `openjpa.ConnectionFactoryProperties=PrintParameters=false` | `eclipselink.logging.level=WARNING`, `eclipselink.logging.level.sql=OFF`, `eclipselink.logging.parameters=false` |
-| bytecode enhancement | none by default; `-Penhance`: build time, lazy initialization + dirty tracking | none by default; `-Penhance`: build time (`hibernate-enhance-maven-plugin`), lazy initialization + dirty tracking | build time (required): `openjpa-maven-plugin`; `openjpa.RuntimeUnenhancedClasses=unsupported`, `openjpa.DynamicEnhancementAgent=false` | `eclipselink.weaving=false` by default (to-one `LAZY` is then loaded eagerly, `getReference` selects); `-Pweave`: static weaving at build time, `eclipselink.weaving=static` |
+| bytecode enhancement | none by default; `-Penhance`: build time, lazy initialization + dirty tracking | none by default; `-Penhance`: build time (`hibernate-enhance-maven-plugin`), lazy initialization + dirty tracking | build time (required): `openjpa-maven-plugin`; `openjpa.RuntimeUnenhancedClasses=unsupported`, `openjpa.DynamicEnhancementAgent=false` | `runner-eclipselink-N`: `eclipselink.weaving=false` (to-one `LAZY` is then loaded eagerly, `getReference` selects); `runner-eclipselink-N-woven` (same settings file) and `-Pweave`: static weaving at build time, `eclipselink.weaving=static` |
 | exact provider build in `metadata.json` | release version | release version | 4.1: release version; 4.2 (latest Apache snapshot): `bench.provider.build` = the resolved `4.2.0-<timestamp>-<buildNumber>` and `bench.provider.revision` = git revision from the jar, recorded at build time | release version |
 | EMF deploys eagerly | default | default | — | `eclipselink.deploy-on-startup=true` (otherwise the session logs in on the first `createEntityManager`) |
 | one DB transaction per `EntityTransaction` | default | default | — | `eclipselink.transaction.join-existing=true` (otherwise reads before the first write run on separately acquired connections) |
+
+## Notes on individual settings
+
+### OpenJPA: `openjpa.jdbc.MappingDefaults=ForeignKeyDeleteAction=restrict, JoinForeignKeyDeleteAction=restrict`
+
+OpenJPA orders and batches the statements of a flush by the foreign keys it knows; with the default `dynamic`
+schema factory it knows only those declared through the mapping defaults. Measured with the H2 smoke settings
+(per `removeBatch`/`persistBatch` operation of 50 orders with 3 lines each, statement metering on):
+
+| Variant | 4.1.1 `persistBatch` | 4.1.1 `removeBatch` | 4.2.0-SNAPSHOT `removeBatch` |
+|---|---|---|---|
+| with `MappingDefaults` (the setting used) | 200 INSERTs in 4 batches | 229 SELECTs, 200 DELETEs in 4 batches | 229 SELECTs, 4 batches |
+| without `MappingDefaults` | 200 INSERTs in **50** batches | 229 SELECTs, 200 DELETEs in **50** batches | 229 SELECTs, 4 batches |
+| `openjpa.jdbc.SchemaFactory=native(ForeignKeys=true)` instead | not measured | not measured | 229 SELECTs, 4 batches, slower (the schema is read) |
+
+The setting therefore does not add SELECTs; without it OpenJPA 4.1 breaks the batches up. The 229 SELECTs of
+`removeBatch` (Hibernate: 51, the query plus one per `lines` collection to cascade the removal) come from
+OpenJPA itself: on delete, `RelationFieldStrategy.delete` fetches the object of every foreign key relation
+(`sm.fetchObjectField`), which loads every referenced `CUSTOMER` and `PRODUCT` row. That is provider behaviour
+and part of what the benchmark measures.
+
