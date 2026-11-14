@@ -45,7 +45,7 @@ differ between providers flagged, because their scores are not comparable.
 
 Every provider label names the enhancement mode from `bench.provider.enhancement`, e.g.
 `EclipseLink 5.0.2 (not woven)`, `EclipseLink 5.0.2 (woven)`, `Hibernate ORM 7.4.15.Final (not enhanced)`,
-`Apache OpenJPA 4.1.1 (enhanced)`, because it changes what a provider does.
+`Apache OpenJPA 4.1.1 (enhanced)`, `Apache OpenJPA 4.1.1 (runtime enhanced)`, because it changes what a provider does.
 
 How the numbers are read:
 
@@ -62,7 +62,7 @@ How the numbers are read:
   there is none.
 - A JMH `scoreError` of `NaN` (a single measurement iteration) is shown as 0: smoke runs have no error
   estimate, and the report says so.
-- Each runner keeps its colour in every chart (fixed order: OpenJPA 4.1, OpenJPA 4.2, Hibernate 6.6,
+- Each runner keeps its colour in every chart (fixed order: OpenJPA 4.1, OpenJPA 4.2, OpenJPA 4.1 agent, OpenJPA 4.2 agent, Hibernate 6.6,
   Hibernate 7, EclipseLink 4, EclipseLink 5, EclipseLink 4 woven, EclipseLink 5 woven), regardless of which
   runners a run contains.
 

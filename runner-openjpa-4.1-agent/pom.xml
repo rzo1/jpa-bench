@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright the jpa-bench authors.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.rzo1.jpabench</groupId>
+        <artifactId>jpa-bench</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <!--
+      runner-openjpa-4.1 with runtime enhancement: the same settings, but the model is enhanced by the OpenJPA
+      javaagent when the classes are loaded instead of by openjpa-maven-plugin at build time. The steady state
+      should match the build-time runner; the enhancement cost shows up in the bootstrap and cold start jobs.
+    -->
+    <artifactId>runner-openjpa-4.1-agent</artifactId>
+    <name>jpa-bench :: runner-openjpa-4.1-agent</name>
+    <description>Benchmark runner for Apache OpenJPA 4.1 (JPA 3.1), model enhanced at class load time by the OpenJPA javaagent.</description>
+
+    <properties>
+        <openjpa.version>4.1.1</openjpa.version>
+        <!-- written into bench-provider.properties -->
+        <bench.enhancement>runtime (-javaagent, PCEnhancerAgent)</bench.enhancement>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-core</artifactId>
+        </dependency>
+        <!-- shaded unenhanced; the agent enhances it at class load time -->
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-model</artifactId>
+        </dependency>
+        <!-- exactly one provider; it brings its own jakarta.persistence-api (3.1) -->
+        <dependency>
+            <groupId>org.apache.openjpa</groupId>
+            <artifactId>openjpa</artifactId>
+            <version>${openjpa.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <!-- the settings of runner-openjpa-4.1, filtered with this module's properties -->
+            <resource>
+                <directory>${project.basedir}/../runner-openjpa-4.1/src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <!--
+              The OpenJPA jar is the agent (Premain-Class org.apache.openjpa.enhance.PCEnhancerAgent): it is copied
+              to target/javaagent.jar and run.sh starts every JMH fork with -javaagent:<runner>/target/javaagent.jar.
+              The agent reads META-INF/persistence.xml (bench-core) and enhances the listed classes when they are
+              loaded. The model is shaded unenhanced; openjpa.RuntimeUnenhancedClasses=unsupported (shared settings
+              file) makes every run without the agent fail instead of silently running unenhanced.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-javaagent</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.apache.openjpa</groupId>
+                                    <artifactId>openjpa</artifactId>
+                                    <version>${openjpa.version}</version>
+                                    <destFileName>javaagent.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

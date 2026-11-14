@@ -36,7 +36,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-ALL_RUNNERS="runner-openjpa-4.1 runner-openjpa-4.2 runner-hibernate-6.6 runner-hibernate-7 runner-eclipselink-4 runner-eclipselink-5 runner-eclipselink-4-woven runner-eclipselink-5-woven"
+ALL_RUNNERS="runner-openjpa-4.1 runner-openjpa-4.2 runner-openjpa-4.1-agent runner-openjpa-4.2-agent runner-hibernate-6.6 runner-hibernate-7 runner-eclipselink-4 runner-eclipselink-5 runner-eclipselink-4-woven runner-eclipselink-5-woven"
 TAB=$(printf '\t')
 
 RUNNERS="$ALL_RUNNERS"
@@ -90,6 +90,8 @@ JMH settings:
                           (default: $BOOTSTRAP_ITERATIONS)
   --cold-forks N          forks of the cold start run, one unwarmed emfBootstrap shot each (default: $COLD_FORKS)
   --jvm-args "ARGS"       replaces the fork JVM arguments (JMH -jvmArgs; default from @Fork(jvmArgs): -Xms2g -Xmx2g)
+                          A runner with a target/javaagent.jar (runner-openjpa-*-agent) additionally gets
+                          -javaagent:<that jar> appended (JMH -jvmArgsAppend), whatever --jvm-args says.
   --smoke                 1 fork, 1 warmup + 1 measurement iteration of 1s (checks that everything runs)
 
 Statement metering (datasource-proxy around the pool, see README):
@@ -321,11 +323,16 @@ esac
 run_job() { # kind runner db dataset
     local kind=$1 runner=$2 db=$3 dataset=$4
     local jar="$runner/target/benchmarks.jar" name="$runner-$db-$dataset"
+    # runtime enhancement: the runner ships the provider's agent jar, every fork starts with it
+    local agent=()
+    if [ -f "$runner/target/javaagent.jar" ]; then
+        agent=(-jvmArgsAppend "-javaagent:$PWD/$runner/target/javaagent.jar")
+    fi
     case "$kind" in
         bench)
             JPABENCH_METERING=$TIMED_METERING JPABENCH_SQL_DIR="$OUT/sql/$name" \
                 "$JAVA_BIN" -jar "$jar" "$INCLUDE" -e emfBootstrap \
-                "${JMH_COMMON[@]}" -f "$FORKS" -tu ms \
+                "${JMH_COMMON[@]}" ${agent[@]+"${agent[@]}"} -f "$FORKS" -tu ms \
                 -wi "$WARMUP_ITERATIONS" -i "$ITERATIONS" -w "$WARMUP_TIME" -r "$TIME" \
                 -p db="$db" -p dataset="$dataset" \
                 -rf json -rff "$OUT/$name.json" > "$OUT/logs/$name.log" 2>&1 || return 1
@@ -334,7 +341,7 @@ run_job() { # kind runner db dataset
             mkdir -p "$OUT/metrics"
             JPABENCH_METERING=on JPABENCH_SQL_DIR="$OUT/sql/$name" \
                 "$JAVA_BIN" -jar "$jar" "$INCLUDE" -e emfBootstrap \
-                "${JMH_COMMON[@]}" -f "$METER_FORKS" -tu ms \
+                "${JMH_COMMON[@]}" ${agent[@]+"${agent[@]}"} -f "$METER_FORKS" -tu ms \
                 -wi "$METER_WARMUP_ITERATIONS" -i "$METER_ITERATIONS" -w "$METER_TIME" -r "$METER_TIME" \
                 -p db="$db" -p dataset="$dataset" \
                 -rf json -rff "$OUT/metrics/$name.json" > "$OUT/logs/metrics-$name.log" 2>&1 || return 1
@@ -342,14 +349,14 @@ run_job() { # kind runner db dataset
         bootstrap)
             JPABENCH_METERING=$TIMED_METERING JPABENCH_SQL_DIR="$OUT/sql/$runner-$db-bootstrap" \
                 "$JAVA_BIN" -jar "$jar" 'BootstrapBenchmark' \
-                "${JMH_COMMON[@]}" -f "$FORKS" -bm ss -tu ms \
+                "${JMH_COMMON[@]}" ${agent[@]+"${agent[@]}"} -f "$FORKS" -bm ss -tu ms \
                 -wi "$BOOTSTRAP_WARMUP" -i "$BOOTSTRAP_ITERATIONS" \
                 -p db="$db" \
                 -rf json -rff "$OUT/$runner-$db-bootstrap.json" > "$OUT/logs/$runner-$db-bootstrap.log" 2>&1 ;;
         coldstart)
             JPABENCH_METERING=$TIMED_METERING \
                 "$JAVA_BIN" -jar "$jar" 'BootstrapBenchmark' \
-                "${JMH_COMMON[@]}" -f "$COLD_FORKS" -bm ss -tu ms -wi 0 -i 1 \
+                "${JMH_COMMON[@]}" ${agent[@]+"${agent[@]}"} -f "$COLD_FORKS" -bm ss -tu ms -wi 0 -i 1 \
                 -p db="$db" \
                 -rf json -rff "$OUT/$runner-$db-coldstart.json" > "$OUT/logs/$runner-$db-coldstart.log" 2>&1 ;;
     esac

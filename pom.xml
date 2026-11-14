@@ -41,6 +41,8 @@
         <module>bench-core</module>
         <module>runner-openjpa-4.1</module>
         <module>runner-openjpa-4.2</module>
+        <module>runner-openjpa-4.1-agent</module>
+        <module>runner-openjpa-4.2-agent</module>
         <module>runner-hibernate-6.6</module>
         <module>runner-hibernate-7</module>
         <module>runner-eclipselink-4</module>

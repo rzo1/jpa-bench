@@ -10,6 +10,8 @@ needs per operation, so you can see *why* a provider is faster or slower.
 |------------------------------|--------------------------------------------|----------------------------------------|
 | `runner-openjpa-4.1`         | Apache OpenJPA 4.1.1                       | build time (required)                  |
 | `runner-openjpa-4.2`         | Apache OpenJPA 4.2.0-SNAPSHOT (latest build of the Apache snapshot repository; the resolved build is recorded) | build time (required) |
+| `runner-openjpa-4.1-agent`   | Apache OpenJPA 4.1.1                       | runtime: `-javaagent` at class load    |
+| `runner-openjpa-4.2-agent`   | Apache OpenJPA 4.2.0-SNAPSHOT              | runtime: `-javaagent` at class load    |
 | `runner-hibernate-6.6`       | Hibernate ORM 6.6.59.Final                 | none (`-Penhance`: build time)          |
 | `runner-hibernate-7`         | Hibernate ORM 7.4.15.Final                 | none (`-Penhance`: build time)          |
 | `runner-eclipselink-4`       | EclipseLink 4.0.10                         | none, not woven (`-Pweave`: static)     |
@@ -59,7 +61,13 @@ run.sh            runs the matrix runner x database x dataset
      order. These numbers measure EclipseLink *without weaving*, not EclipseLink.
    - **Hibernate without enhancement** uses proxies for lazy to-one associations and snapshot dirty checking,
      so it loads only what is touched.
-   - **OpenJPA** is always enhanced (lazy to-one fields, field-level dirty tracking).
+   - **OpenJPA** is always enhanced (lazy to-one fields, field-level dirty tracking), either at build time
+     (`runner-openjpa-N`) or at class load time by its javaagent (`runner-openjpa-N-agent`: same settings file,
+     the OpenJPA jar is copied to `target/javaagent.jar` and `run.sh` starts every fork with
+     `-javaagent:<runner>/target/javaagent.jar`). Both produce the same enhanced classes, so the steady state
+     should be equal; the difference is the enhancement cost in the bootstrap and cold start jobs. Running an
+     `-agent` jar by hand needs `-jvmArgsAppend -javaagent:<runner>/target/javaagent.jar`, otherwise it fails
+     (`openjpa.RuntimeUnenhancedClasses=unsupported`).
 
    Therefore unwoven and woven EclipseLink are both in the default matrix, as separate runners
    (`runner-eclipselink-N` and `runner-eclipselink-N-woven`, identical settings except for the weaving), and
@@ -230,7 +238,8 @@ A runner is a Maven module that contains no Java code:
    configuration (the parent configures `target/benchmarks.jar` with the JMH main class); enable resource
    filtering (`@property@` delimiters) for `bench-provider.properties`. Any existing runner is a template:
    `runner-hibernate-7` (no enhancement, optional profile), `runner-openjpa-4.1` (enhancement required),
-   `runner-eclipselink-5` and `runner-eclipselink-5-woven` (two runners sharing one settings file).
+   `runner-eclipselink-5` and `runner-eclipselink-5-woven` (two runners sharing one settings file),
+   `runner-openjpa-4.1-agent` (runtime enhancement with the provider's javaagent).
 2. `src/main/resources/bench-provider.properties`: the provider's equivalent settings (see
    [CONFIG.md](CONFIG.md)):
    - `bench.provider.name`, `bench.provider.version` (`@...@` from the pom), `bench.provider.enhancement`

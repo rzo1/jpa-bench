@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright the jpa-bench authors.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.rzo1.jpabench</groupId>
+        <artifactId>jpa-bench</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <!--
+      runner-openjpa-4.2 with runtime enhancement: the same settings, but the model is enhanced by the OpenJPA
+      javaagent when the classes are loaded instead of by openjpa-maven-plugin at build time. The steady state
+      should match the build-time runner; the enhancement cost shows up in the bootstrap and cold start jobs.
+    -->
+    <artifactId>runner-openjpa-4.2-agent</artifactId>
+    <name>jpa-bench :: runner-openjpa-4.2-agent</name>
+    <description>Benchmark runner for Apache OpenJPA 4.2.0-SNAPSHOT (JPA 3.2), latest build of the Apache snapshot repository, model enhanced at class load time by the OpenJPA javaagent.</description>
+
+    <properties>
+        <!-- the latest snapshot; the exact build (timestamp-buildNumber, git revision) is recorded at build time -->
+        <openjpa.version>4.2.0-SNAPSHOT</openjpa.version>
+        <bench.enhancement>runtime (-javaagent, PCEnhancerAgent)</bench.enhancement>
+        <!-- replaced by the record-snapshot-build execution with the resolved artifact -->
+        <openjpa.build>unknown</openjpa.build>
+        <openjpa.revision>unknown</openjpa.revision>
+
+        <gmavenplus-plugin.version>4.3.1</gmavenplus-plugin.version>
+        <groovy.version>4.0.31</groovy.version>
+    </properties>
+
+    <!-- Snapshots are enabled for the Apache snapshot repository only, and only in this runner. -->
+    <repositories>
+        <repository>
+            <id>apache-snapshots</id>
+            <url>https://repository.apache.org/content/repositories/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
+            </snapshots>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>apache-snapshots</id>
+            <url>https://repository.apache.org/content/repositories/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bench-model</artifactId>
+        </dependency>
+        <!-- exactly one provider; it brings its own jakarta.persistence-api (3.2) -->
+        <dependency>
+            <groupId>org.apache.openjpa</groupId>
+            <artifactId>openjpa</artifactId>
+            <version>${openjpa.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <!-- the settings of runner-openjpa-4.2, filtered with this module's properties -->
+            <resource>
+                <directory>${project.basedir}/../runner-openjpa-4.2/src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <!--
+              Records the exact snapshot build that was resolved (e.g. 4.2.0-20261114.035154-55) and the git
+              revision stored in the OpenJPA jar, as Maven properties that are filtered into
+              bench-provider.properties (and from there into run.sh's metadata.json).
+            -->
+            <plugin>
+                <groupId>org.codehaus.gmavenplus</groupId>
+                <artifactId>gmavenplus-plugin</artifactId>
+                <version>${gmavenplus-plugin.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.groovy</groupId>
+                        <artifactId>groovy</artifactId>
+                        <version>${groovy.version}</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>record-snapshot-build</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>execute</goal>
+                        </goals>
+                        <configuration>
+                            <scripts>
+                                <script><![CDATA[
+                                    def openjpa = project.artifacts.find {
+                                        it.groupId == 'org.apache.openjpa' && it.artifactId == 'openjpa'
+                                    }
+                                    if (openjpa == null) {
+                                        throw new IllegalStateException('org.apache.openjpa:openjpa is not resolved')
+                                    }
+                                    // a snapshot resolved from a remote repository has its timestamped version
+                                    // here; a locally installed one keeps "-SNAPSHOT"
+                                    // (no GString placeholders here: Maven would interpolate them)
+                                    def resolved = openjpa.version
+                                    if (resolved.endsWith('-SNAPSHOT')) {
+                                        resolved += ' (locally installed build, not from the Apache snapshot repository)'
+                                        log.warn('Using a locally installed OpenJPA snapshot: ' + openjpa.file)
+                                    }
+                                    def revision = 'unknown'
+                                    new java.util.zip.ZipFile(openjpa.file).withCloseable { zip ->
+                                        def entry = zip.getEntry('META-INF/org.apache.openjpa.revision.properties')
+                                        if (entry != null) {
+                                            def props = new Properties()
+                                            zip.getInputStream(entry).withCloseable { props.load(it) }
+                                            revision = props.getProperty('revision.number', 'unknown')
+                                        }
+                                    }
+                                    project.properties.setProperty('openjpa.build', resolved)
+                                    project.properties.setProperty('openjpa.revision', revision)
+                                    log.info('OpenJPA build ' + resolved + ', git revision ' + revision)
+                                ]]></script>
+                            </scripts>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--
+              The OpenJPA jar is the agent (Premain-Class org.apache.openjpa.enhance.PCEnhancerAgent): it is copied
+              to target/javaagent.jar and run.sh starts every JMH fork with -javaagent:<runner>/target/javaagent.jar.
+              The agent reads META-INF/persistence.xml (bench-core) and enhances the listed classes when they are
+              loaded. The model is shaded unenhanced; openjpa.RuntimeUnenhancedClasses=unsupported (shared settings
+              file) makes every run without the agent fail instead of silently running unenhanced.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-javaagent</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.apache.openjpa</groupId>
+                                    <artifactId>openjpa</artifactId>
+                                    <version>${openjpa.version}</version>
+                                    <destFileName>javaagent.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

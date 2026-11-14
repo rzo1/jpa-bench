@@ -28,6 +28,8 @@ import pandas as pd
 KNOWN_RUNNERS: tuple[str, ...] = (
     "runner-openjpa-4.1",
     "runner-openjpa-4.2",
+    "runner-openjpa-4.1-agent",
+    "runner-openjpa-4.2-agent",
     "runner-hibernate-6.6",
     "runner-hibernate-7",
     "runner-eclipselink-4",
@@ -111,7 +113,7 @@ def provider_label(metadata: dict[str, Any], runner: str) -> str:
 
 
 def enhancement_label(enhancement: str | None, provider: str) -> str:
-    """Short form of ``bench.provider.enhancement``: enhanced / not enhanced, woven / not woven."""
+    """Short form of ``bench.provider.enhancement``: enhanced / runtime enhanced / not enhanced, woven / not woven."""
     if not enhancement:
         return ""
     weaving = "eclipselink" in provider.lower()
@@ -119,6 +121,8 @@ def enhancement_label(enhancement: str | None, provider: str) -> str:
         return "not woven" if weaving else "not enhanced"
     if weaving or "weav" in enhancement.lower():
         return "woven"
+    if "runtime" in enhancement.lower() or "agent" in enhancement.lower():
+        return "runtime enhanced"
     return "enhanced"
 
 

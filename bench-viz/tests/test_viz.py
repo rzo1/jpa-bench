@@ -197,6 +197,11 @@ def test_labels_name_the_enhancement() -> None:
         label("Hibernate ORM", "build-time (lazy initialization, dirty tracking)")
         == "Hibernate ORM 1.0 (enhanced)"
     )
+    assert (
+        label("Apache OpenJPA", "runtime (-javaagent, PCEnhancerAgent)")
+        == "Apache OpenJPA 1.0 (runtime enhanced)"
+    )
+    assert label("Apache OpenJPA", "build-time (openjpa-maven-plugin)") == "Apache OpenJPA 1.0 (enhanced)"
     assert provider_label({}, "runner-x") == "x"
 
 
