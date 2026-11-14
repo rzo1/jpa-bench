@@ -1,25 +1,26 @@
 # jpa-bench
 
-A fair, reproducible benchmark of Jakarta Persistence (JPA) providers, inspired by
-[jpab.org](https://www.jpab.org). Every provider runs the **same** JMH benchmarks against the **same** schema
-and the **same** generated data, with settings that are equivalent across providers and documented in
-[CONFIG.md](CONFIG.md). Besides time, every benchmark reports **how many and which SQL statements** a provider
-needs per operation, so you can see *why* a provider is faster or slower.
+A reproducible JMH benchmark of Jakarta Persistence (JPA) providers, inspired by [jpab.org](https://www.jpab.org).
+Every provider runs the same benchmarks on the same schema and data with equivalent settings
+([CONFIG.md](CONFIG.md)). Every benchmark also reports which and how many SQL statements a provider sends per
+operation.
+
+Results: **https://rzo1.github.io/jpa-bench/** (see [Results and contributing a run](#results-and-contributing-a-run)).
 
 | Runner                       | Provider                                   | Enhancement (default build)            |
 |------------------------------|--------------------------------------------|----------------------------------------|
 | `runner-openjpa-4.1`         | Apache OpenJPA 4.1.1                       | build time (required)                  |
-| `runner-openjpa-4.2`         | Apache OpenJPA 4.2.0-SNAPSHOT (latest build of the Apache snapshot repository; the resolved build is recorded) | build time (required) |
+| `runner-openjpa-4.2`         | Apache OpenJPA 4.2.0-SNAPSHOT (latest Apache snapshot; build and revision recorded) | build time (required) |
 | `runner-openjpa-4.1-agent`   | Apache OpenJPA 4.1.1                       | runtime: `-javaagent` at class load    |
 | `runner-openjpa-4.2-agent`   | Apache OpenJPA 4.2.0-SNAPSHOT              | runtime: `-javaagent` at class load    |
 | `runner-hibernate-6.6`       | Hibernate ORM 6.6.59.Final                 | none (`-Penhance`: build time)          |
 | `runner-hibernate-7`         | Hibernate ORM 7.4.15.Final                 | none (`-Penhance`: build time)          |
 | `runner-eclipselink-4`       | EclipseLink 4.0.10                         | none, not woven (`-Pweave`: static)     |
-| `runner-eclipselink-5`       | EclipseLink 5.0.2 (5.0.3 is not released yet, Maven Central only has 5.0.3-RC1) | none, not woven (`-Pweave`: static) |
+| `runner-eclipselink-5`       | EclipseLink 5.0.2                          | none, not woven (`-Pweave`: static)     |
 | `runner-eclipselink-4-woven` | EclipseLink 4.0.10                         | static weaving at build time           |
 | `runner-eclipselink-5-woven` | EclipseLink 5.0.2                          | static weaving at build time           |
 
-All runners are implemented and run by default. Databases: H2 2.x in-memory and PostgreSQL 18.1 (Testcontainers).
+All runners run by default. Databases: H2 2.x in-memory and PostgreSQL 18.1 (Testcontainers).
 
 ## Layout
 
@@ -28,7 +29,8 @@ bench-model/      entities, jakarta.persistence annotations only (JPA 3.1 API, p
 bench-data/       deterministic generator, DDL scripts (src/main/resources/ddl/<db>.sql), JDBC loader
 bench-core/       JMH benchmarks (JPA API only), BenchEnvironment, statement metrics, persistence.xml
 runner-*/         one provider each: bench-core + bench-model + provider + JDBC drivers -> target/benchmarks.jar
-bench-viz/        Python tool that turns results into charts and an HTML report
+bench-viz/        Python: reports, results site, run validation
+results-branch/   template of the orphan branch "results" (published runs, Pages workflow)
 run.sh            runs the matrix runner x database x dataset
 ```
 
@@ -51,44 +53,29 @@ run.sh            runs the matrix runner x database x dataset
    such an option, second level cache and query cache off, no provider-side statement cache, no SQL logging or
    statistics. The full table is in [CONFIG.md](CONFIG.md); each runner's settings are in its
    `src/main/resources/bench-provider.properties`.
-5. **Enhancement per provider default.** Every provider runs the way it runs out of the box: OpenJPA enhances
-   the model at build time (it requires it), Hibernate runs without bytecode enhancement, EclipseLink without
-   weaving (`-Penhance` / `-Pweave` turn it on). This is *not* equivalent work, and the consequences are visible
-   in the results:
-   - **EclipseLink without weaving** cannot load a to-one association lazily: every `@ManyToOne(fetch = LAZY)`
-     is loaded eagerly, and `getReference()` runs a SELECT. Joins and pages load the customer of every order,
-     `persistBatch` selects every referenced customer and product, `resultStream` loads one customer per
-     order. These numbers measure EclipseLink *without weaving*, not EclipseLink.
-   - **Hibernate without enhancement** uses proxies for lazy to-one associations and snapshot dirty checking,
-     so it loads only what is touched.
-   - **OpenJPA** is always enhanced (lazy to-one fields, field-level dirty tracking), either at build time
-     (`runner-openjpa-N`) or at class load time by its javaagent (`runner-openjpa-N-agent`: same settings file,
-     the OpenJPA jar is copied to `target/javaagent.jar` and `run.sh` starts every fork with
-     `-javaagent:<runner>/target/javaagent.jar`). Both produce the same enhanced classes, so the steady state
-     should be equal; the difference is the enhancement cost in the bootstrap and cold start jobs. Running an
-     `-agent` jar by hand needs `-jvmArgsAppend -javaagent:<runner>/target/javaagent.jar`, otherwise it fails
-     (`openjpa.RuntimeUnenhancedClasses=unsupported`).
+5. **Enhancement per provider default.** OpenJPA is always enhanced (lazy to-one, field-level dirty tracking),
+   at build time (`runner-openjpa-N`) or by its javaagent at class load (`runner-openjpa-N-agent`: run.sh starts
+   every fork with `-javaagent:<runner>/target/javaagent.jar`; same enhanced classes, the difference shows in
+   bootstrap and cold start). Hibernate runs without bytecode enhancement (proxies, snapshot dirty checking),
+   EclipseLink without weaving (`-Penhance` / `-Pweave` switch it on). This is not equivalent work:
+   - **EclipseLink without weaving** loads every `@ManyToOne(fetch = LAZY)` eagerly and `getReference()` runs a
+     SELECT, so joins, pages, `persistBatch` and `resultStream` load extra rows. Unwoven and woven EclipseLink
+     are therefore separate runners (`runner-eclipselink-N`, `runner-eclipselink-N-woven`); compare the woven
+     one with the others.
+   - Running an `-agent` jar by hand needs `-jvmArgsAppend -javaagent:<runner>/target/javaagent.jar`, otherwise
+     it fails (`openjpa.RuntimeUnenhancedClasses=unsupported`).
 
-   Therefore unwoven and woven EclipseLink are both in the default matrix, as separate runners
-   (`runner-eclipselink-N` and `runner-eclipselink-N-woven`, identical settings except for the weaving), and
-   every bench-viz label names the enhancement, e.g. `EclipseLink 5.0.2 (not woven)`. Compare woven
-   EclipseLink with the others; read unwoven EclipseLink as its own category. The mode is recorded in
-   `metadata.json` (`bench.provider.enhancement`).
-6. **Results are really loaded, and they are the same.** Every benchmark touches the fields and collections the
-   operation is supposed to load and folds them into a checksum consumed by a JMH `Blackhole`. Before measuring,
-   every read trial runs each read operation for fixed inputs and logs its checksum
-   (`# jpa-bench: verify <operation>=<checksum>`, see `Verification.java`). run.sh collects them into
-   `verification.tsv` and warns (and writes `verification-mismatches.txt`) when providers return different
-   results; the bench-viz report flags them. Write benchmarks are not verified this way.
-7. **Same JVM conditions.** One `EntityManagerFactory` per fork, forks with `-Xms2g -Xmx2g`
-   (`@Fork(jvmArgs)`; `run.sh --jvm-args "..."` replaces them for every runner alike), one benchmark thread
-   (the statement counters are per JVM; a trial with `-t` > 1 fails), runs strictly one after another.
-   `run.sh --order interleave|shuffle` keeps thermal drift and background load from favouring the runners
-   that happen to run first; the actual order and timestamps are written to `execution.tsv`.
-8. **Metering is not timed.** Counting statements costs time on every statement (proxy, SQL classification), so
-   chatty providers would pay more than their real cost. By default run.sh times every benchmark with the plain
-   pool (`JPABENCH_METERING=off`) and collects the statement metrics in a separate, short metered run
-   (`--metering separate`; `inline` reproduces the old single run, `off` skips the metrics).
+   Every bench-viz label names the enhancement, e.g. `EclipseLink 5.0.2 (not woven)`; `metadata.json` records
+   it (`bench.provider.enhancement`).
+6. **Same results.** Every benchmark touches what the operation loads and folds it into a checksum for a JMH
+   `Blackhole`. Before measuring, every read trial logs a checksum per read operation for fixed inputs
+   (`# jpa-bench: verify <operation>=<checksum>`, `Verification.java`); run.sh collects them in
+   `verification.tsv` and writes `verification-mismatches.txt` when providers differ. Writes are not verified.
+7. **Same JVM conditions.** One `EntityManagerFactory` per fork, `-Xms2g -Xmx2g` (`run.sh --jvm-args` replaces
+   it for all runners), one benchmark thread (`-t` > 1 fails: the statement counters are per JVM), jobs one
+   after another. `run.sh --order interleave|shuffle` spreads thermal drift; `execution.tsv` has the actual order.
+8. **Metering is not timed.** Benchmarks are timed on the plain pool; statement metrics come from a separate
+   short metered run (`--metering separate`, default; `inline`: one metered run, `off`: no metrics).
 
 ## Benchmarks
 
@@ -119,27 +106,19 @@ operation, default 50).
 
 ### Modes
 
-- **Read benchmarks** (`ReadBenchmarks`): Throughput and AverageTime with time-bound iterations. They never
-  modify data, so a faster provider doing more operations per iteration changes nothing for the next one.
-- **Write benchmarks** (`WriteBenchmarks`): SingleShotTime with a **fixed batch of 200 operations per
-  iteration** (`@Warmup/@Measurement(batchSize = 200)`), tables reset before every iteration. Every provider
-  therefore writes exactly the same rows per iteration and starts each iteration from the same table sizes;
-  in a time-bound mode a faster provider would write more rows and work against bigger tables, more garbage
-  (H2 lives in the benchmark heap) and more dead rows (PostgreSQL). JMH reports the time of the whole batch
-  of 200 operations (its unit nevertheless says `ms/op`); bench-viz divides it by the `measurementBatchSize`
-  of the JMH JSON and shows milliseconds per operation. Per-invocation setup (the JDBC insert of the rows
-  `removeBatch`/`bulkDelete` delete) is not timed.
-- **`emfBootstrap`**: SingleShotTime, run twice: **warm** (`<runner>-<db>-bootstrap.json`, 5 warmup shots, then
-  20 measured shots per fork: the cost of another EMF in a running JVM) and **cold start**
-  (`<runner>-<db>-coldstart.json`, `-wi 0 -i 1` with 10 forks: the first EMF of a fresh JVM, class loading
-  included).
+- **Read benchmarks**: Throughput and AverageTime, time-bound iterations; they never modify data.
+- **Write benchmarks**: SingleShotTime with a fixed batch of 200 operations per iteration
+  (`@Measurement(batchSize = 200)`), tables reset before every iteration, so every provider writes the same rows
+  from the same table sizes. JMH reports the time of the batch (unit `ms/op` regardless); bench-viz divides by
+  `measurementBatchSize`. Per-invocation setup (rows that `removeBatch`/`bulkDelete` delete) is not timed.
+- **`emfBootstrap`**: SingleShotTime, warm (`<runner>-<db>-bootstrap.json`: 5 warmup + 20 measured shots per
+  fork) and cold start (`<runner>-<db>-coldstart.json`: first shot of 10 fresh JVMs, class loading included).
 
 ## Statement metrics
 
-The pool is wrapped with [datasource-proxy](https://github.com/jdbc-observations/datasource-proxy); everything a
-provider executes is counted, the harness' own JDBC work is not. Per operation the JMH JSON contains these
-secondary metrics (JMH `@AuxCounters(EVENTS)`). With `--metering separate` (the default) they come from the
-metered run in `results/<timestamp>/metrics/`; the counters of the timed (unmetered) runs are all 0.
+[datasource-proxy](https://github.com/jdbc-observations/datasource-proxy) wraps the pool and counts everything
+a provider executes, not the harness' own JDBC work. Secondary metrics per operation (`@AuxCounters(EVENTS)`),
+with `--metering separate` in `metrics/` (the timed runs report 0):
 
 | Metric | Meaning |
 |---|---|
@@ -151,9 +130,8 @@ metered run in `results/<timestamp>/metrics/`; the counters of the timed (unmete
 | `selectMaxChars` | longest SELECT of the iteration (not per op) |
 | `ops` | operations of the iteration (raw count) |
 
-JMH sums `EVENTS` counters over iterations and forks, so the per-operation value of a metric is the **mean of
-its `rawData`** (bench-viz does this), not its `score`. The distinct SQL texts of the first iteration of every
-benchmark are written to `results/<timestamp>/sql/<runner>-<db>-<dataset>/` to compare the generated SQL.
+JMH sums `EVENTS` counters over iterations and forks: the per-operation value is the mean of `rawData`, not
+`score`. The distinct SQL of the first iteration per benchmark is in `sql/<runner>-<db>-<dataset>/`.
 
 ## Build
 
@@ -164,10 +142,9 @@ Requires JDK 21+ and, for PostgreSQL, Docker.
 ./mvnw -B package -Penhance,weave       # Hibernate enhanced, EclipseLink runners woven
 ```
 
-Each runner produces `<runner>/target/benchmarks.jar`. A build always starts by deleting model classes left in a
-runner's `target/classes` by an earlier `-Penhance`/`-Pweave` build (execution `remove-stale-model` of the root
-pom), so a jar never contains enhanced or woven classes its recorded `bench.provider.enhancement` does not
-mention. run.sh always builds with `clean package` and passes `--profiles` on to Maven.
+Each runner produces `<runner>/target/benchmarks.jar`. Every build first deletes model classes of an earlier
+`-Penhance`/`-Pweave` build (`remove-stale-model` in the root pom). run.sh builds with `clean package` and
+passes `--profiles` to Maven.
 
 ## Run
 
@@ -177,13 +154,10 @@ mention. run.sh always builds with `clean package` and passes `--profiles` on to
 ./run.sh --smoke --dbs h2                         # 1 fork, 1+1 iterations of 1s: checks that everything runs
 ./run.sh --order shuffle --seed 42                # random job order (recorded), against drift
 ./run.sh --profiles enhance --runners runner-hibernate-7   # Hibernate with bytecode enhancement
+./run.sh --contributor <github-handle> --machine "MacBook Pro M4 Max"   # recorded in metadata.json
 ./run.sh --help
 ```
 
-Options in short: `--runners/--dbs/--datasets/--include` select the matrix, `--forks/--warmup-iterations/
---iterations/--warmup-time/--time` the JMH settings (iteration times apply to the read benchmarks only),
-`--bootstrap-iterations/--cold-forks/--no-bootstrap` the bootstrap runs, `--metering separate|inline|off`,
-`--order sequential|interleave|shuffle` and `--seed`, `--profiles`, `--skip-build`, `--jvm-args`, `--out`.
 A failing job is logged and the matrix continues; run.sh exits with 1 at the end.
 
 Results are written to `results/<timestamp>/`:
@@ -193,9 +167,10 @@ Results are written to `results/<timestamp>/`:
 | `<runner>-<db>-<dataset>.json` | JMH JSON (reads: Throughput and AverageTime; writes: single shot with a fixed batch) |
 | `metrics/<runner>-<db>-<dataset>.json` | short metered run with the statement metrics (`--metering separate`) |
 | `<runner>-<db>-bootstrap.json`, `<runner>-<db>-coldstart.json` | emfBootstrap warm and cold start |
-| `metadata.json` | git commit, build profiles, JDK, OS, CPU, Docker, PostgreSQL image (by digest) and settings, JMH, metering and order settings, the resolved settings of every runner per database |
+| `metadata.json` | git commit, build profiles, JDK, OS, machine (model, chip, cores, memory, power source, Low Power Mode; DMI product and governor on Linux), contributor, smoke flag, Docker, PostgreSQL image (by digest), JMH, metering and order settings, resolved settings of every runner per database |
 | `execution.tsv` | the jobs in the order they ran, with start/end time and status |
-| `verification.tsv` | result checksums of the read operations per runner (see fairness rule 6) |
+| `verification.tsv` | result checksums of the read operations per runner (fairness rule 6) |
+| `datasets.tsv` | loaded dataset per runner and database: seed, checksum, row counts |
 | `sql/`, `logs/` | distinct SQL per benchmark, complete JMH output |
 
 A single runner jar can also be used directly with all JMH options:
@@ -217,13 +192,10 @@ Each fork starts its own container through Testcontainers:
 | data directory | tmpfs (no disk I/O noise) | |
 | server settings | `fsync=off` (Testcontainers default), `autovacuum=off` | |
 
-Statistics are not left to chance: the loader runs `ANALYZE` right after the bulk load (on H2 too), and before
-every write iteration the harness runs `VACUUM ANALYZE ORDERS, ORDER_LINE`, so each iteration starts from the
-same physical state and no background autovacuum runs while measuring. With an external server
-(`JPABENCH_PG_URL`) switch autovacuum off yourself for comparable runs.
-
-Every trial logs the server version (`SELECT version()`) and the relevant settings (`shared_buffers`,
-`work_mem`, `synchronous_commit`, `fsync`, `jit`, `autovacuum`, ...) in its `# jpa-bench: provider ...` line.
+The loader runs `ANALYZE` after the bulk load (H2 too); every write iteration starts with
+`VACUUM ANALYZE ORDERS, ORDER_LINE`. With an external server (`JPABENCH_PG_URL`) switch autovacuum off yourself.
+Every trial logs the server version and settings (`shared_buffers`, `work_mem`, `fsync`, `jit`, ...) in its
+`# jpa-bench: provider ...` line.
 
 Set `JPABENCH_PG_URL` (and `JPABENCH_PG_USER`, `JPABENCH_PG_PASSWORD`) to use an existing server instead.
 If Docker is not on the default socket set `DOCKER_HOST`, e.g.
@@ -258,35 +230,47 @@ A runner is a Maven module that contains no Java code:
 
 ## Reproducing a run
 
-`metadata.json` records the git commit, the build profiles, versions, JDK, OS, CPU, Docker, the PostgreSQL image
-by digest, the JMH, metering and order settings (with the shuffle seed) and the resolved settings of every
-runner per database; `execution.tsv` the actual job order. The data checksum is in every log
-(`# jpa-bench: dataset ...`); for dataset S and the default seed it must be `17f556d4e3d90c3d` (asserted by
-`DatasetLoaderTest`). Check out the commit, use the same JDK and run `./run.sh` with the same options.
+Check out the commit from `metadata.json`, use the same JDK and run `./run.sh` with the same options;
+`execution.tsv` has the job order. The data checksum is logged (`# jpa-bench: dataset ...`) and collected in
+`datasets.tsv`; for dataset S and the default seed it is `17f556d4e3d90c3d` (`DatasetLoaderTest`).
 
 ## Visualisation
 
-`bench-viz/` (Python 3.12+, managed with [uv](https://docs.astral.sh/uv/), pandas + matplotlib) reads a results
-directory and writes comparison charts and one self-contained static HTML report:
+`bench-viz/` (Python 3.12+, [uv](https://docs.astral.sh/uv/)) writes one self-contained HTML report per results
+directory: run summary, scores normalized to the fastest provider, statements per operation, SQL per benchmark,
+provider settings, verification. Details in [bench-viz/README.md](bench-viz/README.md).
 
 ```bash
 cd bench-viz
-uv run jpa-bench-viz ../results/<timestamp>              # writes ../results/<timestamp>/report/index.html
-uv run jpa-bench-viz ../results/<timestamp> --format png --out /tmp/report
+uv run jpa-bench-viz ../results/<timestamp>              # ../results/<timestamp>/report/index.html
 ```
 
-Per database and dataset the report contains:
+## Results and contributing a run
 
-- every benchmark normalized to the fastest provider (1.0 = fastest; throughput `score / best`, time modes
-  `best / score`) with error bars, per JMH mode, and tables with the absolute scores;
-- statements per operation stacked by kind (SELECT, INSERT, UPDATE, DELETE, other), JDBC round trips, SQL
-  characters, the longest SELECT and joined tables per operation, to see which provider sends more or bigger SQL;
-- per benchmark the absolute scores and the distinct SQL each provider sent in the first iteration;
-- the run's environment from `metadata.json` and every provider's settings.
+Published runs live on the orphan branch `results` under `runs/<yyyy-mm-dd>-<machine>-<contributor>/`. Every
+push to it builds https://rzo1.github.io/jpa-bench/: an index of all runs, a page per run (machine, OS, JDK,
+database image, commit, provider versions and enhancement, OpenJPA snapshot build and revision, JMH settings,
+verification) and the data model and dataset sizes. Smoke and reduced runs are listed separately as not
+comparable. Compare providers within a run, not runs from different machines.
 
-It also writes `scores.csv` and `statements.csv` for further analysis. See [bench-viz/README.md](bench-viz/README.md)
-for how the numbers are read and for development (`uv run ruff check`, `uv run ruff format --check`,
-`uv run pytest`).
+To contribute a run:
+
+1. On a clean checkout of `main`, on AC power, Low Power Mode off, nothing else running:
+   `./run.sh --contributor <github-handle> --machine "<short label>"` (all runners, H2 and PostgreSQL; hours).
+2. Fork the repository, check out `results` and add the run:
+   ```bash
+   cd bench-viz
+   uv run jpa-bench-viz add-run ../results/<timestamp> <results-checkout>/runs
+   uv run jpa-bench-viz validate --submission <results-checkout>/runs/<run-id>
+   ```
+   `add-run` gzips the logs and leaves out `report/`.
+3. Open a pull request against `results` that adds only `runs/<run-id>/`. CI validates it and builds the site.
+
+Published: everything `run.sh` writes except `report/`, logs gzipped. Validation rejects runs with failed or
+missing jobs, verification mismatches, dataset checksums other than the reference, or no contributor.
+
+The branch is created once from [results-branch/](results-branch/) with `results-branch/bootstrap.sh` (an
+orphan branch in a new worktree; push it, then set Settings > Pages > Source to GitHub Actions).
 
 ## License
 
