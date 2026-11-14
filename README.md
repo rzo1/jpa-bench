@@ -109,10 +109,13 @@ operation, default 50).
 - **Read benchmarks**: Throughput and AverageTime, time-bound iterations; they never modify data.
 - **Write benchmarks**: SingleShotTime with a fixed batch of 200 operations per iteration
   (`@Measurement(batchSize = 200)`), tables reset before every iteration, so every provider writes the same rows
-  from the same table sizes. JMH reports the time of the batch (unit `ms/op` regardless); bench-viz divides by
+  from the same table sizes (in a time-bound mode a faster provider would write more rows and then work against
+  bigger tables and more garbage). JMH reports the time of the batch (unit `ms/op` regardless); bench-viz divides by
   `measurementBatchSize`. Per-invocation setup (rows that `removeBatch`/`bulkDelete` delete) is not timed.
 - **`emfBootstrap`**: SingleShotTime, warm (`<runner>-<db>-bootstrap.json`: 5 warmup + 20 measured shots per
-  fork) and cold start (`<runner>-<db>-coldstart.json`: first shot of 10 fresh JVMs, class loading included).
+  fork) and cold start (`<runner>-<db>-coldstart.json`: first shot of 10 fresh JVMs, class loading included). For `runner-openjpa-N-agent` the
+  agent's `premain` runs before the benchmark, so its startup cost is not in these numbers; enhancement of the
+  model classes on first load is.
 
 ## Statement metrics
 
