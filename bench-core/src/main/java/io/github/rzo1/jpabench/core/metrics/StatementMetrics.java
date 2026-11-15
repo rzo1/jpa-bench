@@ -15,14 +15,19 @@
  */
 package io.github.rzo1.jpabench.core.metrics;
 
+import java.sql.Connection;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.sql.DataSource;
+
 import net.ttddyy.dsproxy.ExecutionInfo;
 import net.ttddyy.dsproxy.QueryInfo;
 import net.ttddyy.dsproxy.StatementType;
+import net.ttddyy.dsproxy.listener.MethodExecutionContext;
+import net.ttddyy.dsproxy.listener.MethodExecutionListener;
 import net.ttddyy.dsproxy.listener.QueryExecutionListener;
 
 /**
@@ -34,9 +39,12 @@ import net.ttddyy.dsproxy.listener.QueryExecutionListener;
  *   <li>{@code batches} counts {@code executeBatch} calls, {@code batchedRows} their parameter sets.</li>
  *   <li>{@code sqlChars} sums the SQL length per execution; a batch counts each distinct text once.</li>
  *   <li>{@code selectJoins} sums the {@link SqlClassifier#joins} of all SELECTs.</li>
+ *   <li>{@code connections} counts {@code DataSource.getConnection} calls, {@code commits} and {@code rollbacks}
+ *   the transaction calls, {@code connectionSettings} the {@code Connection.set*} calls and {@code prepares} the
+ *   {@code prepareStatement}, {@code prepareCall} and {@code createStatement} calls.</li>
  * </ul>
  */
-public final class StatementMetrics implements QueryExecutionListener {
+public final class StatementMetrics implements QueryExecutionListener, MethodExecutionListener {
 
     /** Environment variable with the directory for the captured SQL files. */
     public static final String ENV_SQL_DIR = "JPABENCH_SQL_DIR";
@@ -46,7 +54,8 @@ public final class StatementMetrics implements QueryExecutionListener {
 
     /** Counter values at one point in time. */
     public record Snapshot(long select, long insert, long update, long delete, long other, long executions,
-                           long batches, long batchedRows, long sqlChars, long selectJoins) {
+                           long batches, long batchedRows, long sqlChars, long selectJoins, long connections,
+                           long commits, long rollbacks, long connectionSettings, long prepares) {
 
         public long total() {
             return select + insert + update + delete + other;
@@ -56,7 +65,9 @@ public final class StatementMetrics implements QueryExecutionListener {
             return new Snapshot(select - base.select, insert - base.insert, update - base.update,
                     delete - base.delete, other - base.other, executions - base.executions,
                     batches - base.batches, batchedRows - base.batchedRows, sqlChars - base.sqlChars,
-                    selectJoins - base.selectJoins);
+                    selectJoins - base.selectJoins, connections - base.connections, commits - base.commits,
+                    rollbacks - base.rollbacks, connectionSettings - base.connectionSettings,
+                    prepares - base.prepares);
         }
     }
 
@@ -71,6 +82,11 @@ public final class StatementMetrics implements QueryExecutionListener {
     private long sqlChars;
     private long selectJoins;
     private long selectMaxChars;
+    private long connections;
+    private long commits;
+    private long rollbacks;
+    private long connectionSettings;
+    private long prepares;
 
     private boolean capturing;
     private final Set<String> captured = new LinkedHashSet<>();
@@ -117,9 +133,36 @@ public final class StatementMetrics implements QueryExecutionListener {
         }
     }
 
+    @Override
+    public void beforeMethod(MethodExecutionContext executionContext) {
+        // counted after the call
+    }
+
+    @Override
+    public synchronized void afterMethod(MethodExecutionContext executionContext) {
+        String name = executionContext.getMethod().getName();
+        Object target = executionContext.getTarget();
+        if (target instanceof DataSource) {
+            if ("getConnection".equals(name)) {
+                connections++;
+            }
+        } else if (target instanceof Connection) {
+            switch (name) {
+                case "commit" -> commits++;
+                case "rollback" -> rollbacks++;
+                case "prepareStatement", "prepareCall", "createStatement" -> prepares++;
+                default -> {
+                    if (name.startsWith("set")) {
+                        connectionSettings++;
+                    }
+                }
+            }
+        }
+    }
+
     public synchronized Snapshot snapshot() {
         return new Snapshot(select, insert, update, delete, other, executions, batches, batchedRows, sqlChars,
-                selectJoins);
+                selectJoins, connections, commits, rollbacks, connectionSettings, prepares);
     }
 
     /** Returns the length of the longest SELECT since the last {@link #resetMax()}. */

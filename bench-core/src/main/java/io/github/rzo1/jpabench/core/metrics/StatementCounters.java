@@ -162,6 +162,28 @@ public class StatementCounters {
         return perOp(delta().selectJoins());
     }
 
+    public double jdbcConnections() {
+        return perOp(delta().connections());
+    }
+
+    public double jdbcCommits() {
+        return perOp(delta().commits());
+    }
+
+    public double jdbcRollbacks() {
+        return perOp(delta().rollbacks());
+    }
+
+    /** Returns the {@code Connection.set*} calls (auto-commit, isolation, read-only, ...) per operation. */
+    public double jdbcConnectionSettings() {
+        return perOp(delta().connectionSettings());
+    }
+
+    /** Returns the {@code prepareStatement}, {@code prepareCall} and {@code createStatement} calls per operation. */
+    public double jdbcPrepares() {
+        return perOp(delta().prepares());
+    }
+
     /** Returns the length of the longest SELECT of this iteration. */
     public long selectMaxChars() {
         return metrics.selectMaxChars();

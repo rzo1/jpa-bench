@@ -69,12 +69,17 @@ STATEMENT_LABELS: dict[str, str] = {
 METRIC_LABELS: dict[str, str] = {
     **STATEMENT_LABELS,
     "stmtTotal": "statements",
-    "jdbcExecutions": "JDBC round trips",
+    "jdbcExecutions": "statement executions",
     "jdbcBatches": "JDBC batches",
     "jdbcBatchedRows": "batched rows",
     "sqlChars": "SQL chars",
     "selectJoins": "joined tables in SELECTs",
     "selectMaxChars": "longest SELECT (chars)",
+    "jdbcConnections": "connections acquired",
+    "jdbcCommits": "commits",
+    "jdbcRollbacks": "rollbacks",
+    "jdbcConnectionSettings": "Connection.set* calls",
+    "jdbcPrepares": "statements prepared",
     "ops": "ops per iteration",
 }
 

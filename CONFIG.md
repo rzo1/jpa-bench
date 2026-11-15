@@ -61,3 +61,9 @@ The setting adds no SELECTs; without it OpenJPA 4.1 does not batch across orders
 `removeBatch` (Hibernate: 51) are OpenJPA's own: `RelationFieldStrategy.delete` fetches every related object
 (`sm.fetchObjectField`), loading each referenced `CUSTOMER` and `PRODUCT` row.
 
+### OpenJPA: optimistic transactions
+
+OpenJPA's default `openjpa.Optimistic=true` starts a datastore transaction only at flush. Read-only operations
+run on a connection in auto-commit mode and send no `COMMIT`; Hibernate and EclipseLink commit every
+transaction. On PostgreSQL this saves one round trip per read-only operation (see `jdbcCommits`). Writes use a
+second connection for the flush (`jdbcConnections` = 2).

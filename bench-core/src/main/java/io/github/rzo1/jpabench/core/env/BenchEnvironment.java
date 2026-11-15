@@ -69,7 +69,8 @@ public final class BenchEnvironment implements AutoCloseable {
         this.pool = pool;
         this.metering = meteringEnabled();
         this.metered = metering
-                ? ProxyDataSourceBuilder.create("jpa-bench", pool).listener(StatementMetrics.INSTANCE).build()
+                ? ProxyDataSourceBuilder.create("jpa-bench", pool).listener(StatementMetrics.INSTANCE)
+                        .methodListener(StatementMetrics.INSTANCE).build()
                 : pool;
     }
 

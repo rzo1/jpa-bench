@@ -130,10 +130,13 @@ with `--metering separate` in `metrics/` (the timed runs report 0):
 | Metric | Meaning |
 |---|---|
 | `stmtSelect`, `stmtInsert`, `stmtUpdate`, `stmtDelete`, `stmtOther`, `stmtTotal` | logical statements by kind (a batch with n parameter sets counts n) |
-| `jdbcExecutions` | round trips (`execute*` calls, one per `executeBatch`) |
+| `jdbcExecutions` | statement executions (`execute*` calls, one per `executeBatch`) |
 | `jdbcBatches`, `jdbcBatchedRows` | `executeBatch` calls and the parameter sets they carried |
 | `sqlChars` | total SQL text length sent |
 | `selectJoins` | joined tables over all SELECTs: `JOIN` keywords plus the extra tables of comma-separated FROM lists (theta joins, as EclipseLink writes them), subqueries included |
+| `jdbcConnections`, `jdbcCommits`, `jdbcRollbacks` | `DataSource.getConnection`, `commit` and `rollback` calls |
+| `jdbcConnectionSettings` | `Connection.set*` calls (auto-commit, isolation, read-only, ...) |
+| `jdbcPrepares` | `prepareStatement`, `prepareCall` and `createStatement` calls |
 | `selectMaxChars` | longest SELECT of the iteration (not per op) |
 | `ops` | operations of the iteration (raw count) |
 

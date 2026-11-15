@@ -60,6 +60,11 @@ STATEMENT_COLUMNS: tuple[str, ...] = (
     "sqlChars",
     "selectMaxChars",
     "selectJoins",
+    "jdbcConnections",
+    "jdbcCommits",
+    "jdbcRollbacks",
+    "jdbcConnectionSettings",
+    "jdbcPrepares",
 )
 
 
