@@ -1,0 +1,2 @@
+UPDATE ORDERS t0 SET t0.STATUS = ?, VERSION = VERSION + 1 WHERE (t0.ID >= ? AND t0.ID <= ?);
+
