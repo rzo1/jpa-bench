@@ -13,8 +13,10 @@ Results: **https://rzo1.github.io/jpa-bench/** (see [Results and contributing a 
 | `runner-openjpa-4.2`         | Apache OpenJPA 4.2.0-SNAPSHOT (latest Apache snapshot; build and revision recorded) | build time (required) |
 | `runner-openjpa-4.1-agent`   | Apache OpenJPA 4.1.1                       | runtime: `-javaagent` at class load    |
 | `runner-openjpa-4.2-agent`   | Apache OpenJPA 4.2.0-SNAPSHOT              | runtime: `-javaagent` at class load    |
-| `runner-hibernate-6.6`       | Hibernate ORM 6.6.59.Final                 | none (`-Penhance`: build time)          |
-| `runner-hibernate-7`         | Hibernate ORM 7.4.15.Final                 | none (`-Penhance`: build time)          |
+| `runner-hibernate-6.6`       | Hibernate ORM 6.6.59.Final                 | none                                   |
+| `runner-hibernate-7`         | Hibernate ORM 7.4.15.Final                 | none                                   |
+| `runner-hibernate-6.6-enhanced` | Hibernate ORM 6.6.59.Final              | build time (lazy init, dirty tracking) |
+| `runner-hibernate-7-enhanced` | Hibernate ORM 7.4.15.Final                | build time (lazy init, dirty tracking) |
 | `runner-eclipselink-4`       | EclipseLink 4.0.10                         | none, not woven (`-Pweave`: static)     |
 | `runner-eclipselink-5`       | EclipseLink 5.0.2                          | none, not woven (`-Pweave`: static)     |
 | `runner-eclipselink-4-woven` | EclipseLink 4.0.10                         | static weaving at build time           |
@@ -53,11 +55,13 @@ run.sh            runs the matrix runner x database x dataset
    such an option, second level cache and query cache off, no provider-side statement cache, no SQL logging or
    statistics. The full table is in [CONFIG.md](CONFIG.md); each runner's settings are in its
    `src/main/resources/bench-provider.properties`.
-5. **Enhancement per provider default.** OpenJPA is always enhanced (lazy to-one, field-level dirty tracking),
+5. **Each provider plain and enhanced.** OpenJPA is always enhanced (lazy to-one, field-level dirty tracking),
    at build time (`runner-openjpa-N`) or by its javaagent at class load (`runner-openjpa-N-agent`: run.sh starts
    every fork with `-javaagent:<runner>/target/javaagent.jar`; same enhanced classes, the difference shows in
-   bootstrap and cold start). Hibernate runs without bytecode enhancement (proxies, snapshot dirty checking),
-   EclipseLink without weaving (`-Penhance` / `-Pweave` switch it on). This is not equivalent work:
+   bootstrap and cold start). Hibernate runs without bytecode enhancement (proxies, snapshot dirty checking) in
+   `runner-hibernate-N` and enhanced at build time in `runner-hibernate-N-enhanced`; EclipseLink unwoven in
+   `runner-eclipselink-N` and statically woven in `runner-eclipselink-N-woven`. Each pair shares one settings
+   file. Plain and enhanced are not equivalent work:
    - **EclipseLink without weaving** loads every `@ManyToOne(fetch = LAZY)` eagerly and `getReference()` runs a
      SELECT, so joins, pages, `persistBatch` and `resultStream` load extra rows. Unwoven and woven EclipseLink
      are therefore separate runners (`runner-eclipselink-N`, `runner-eclipselink-N-woven`); compare the woven
@@ -142,7 +146,7 @@ Requires JDK 21+ and, for PostgreSQL, Docker.
 
 ```bash
 ./mvnw -B package                       # all modules, tests included
-./mvnw -B package -Penhance,weave       # Hibernate enhanced, EclipseLink runners woven
+./mvnw -B package -Penhance,weave       # also enhance/weave the plain Hibernate/EclipseLink runners
 ```
 
 Each runner produces `<runner>/target/benchmarks.jar`. Every build first deletes model classes of an earlier
@@ -156,7 +160,6 @@ passes `--profiles` to Maven.
 ./run.sh --runners runner-openjpa-4.2,runner-eclipselink-5-woven --dbs h2 --datasets S,M
 ./run.sh --smoke --dbs h2                         # 1 fork, 1+1 iterations of 1s: checks that everything runs
 ./run.sh --order shuffle --seed 42                # random job order (recorded), against drift
-./run.sh --profiles enhance --runners runner-hibernate-7   # Hibernate with bytecode enhancement
 ./run.sh --contributor <github-handle> --machine "MacBook Pro M4 Max"   # recorded in metadata.json
 ./run.sh --help
 ```

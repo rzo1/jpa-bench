@@ -32,6 +32,8 @@ KNOWN_RUNNERS: tuple[str, ...] = (
     "runner-openjpa-4.2-agent",
     "runner-hibernate-6.6",
     "runner-hibernate-7",
+    "runner-hibernate-6.6-enhanced",
+    "runner-hibernate-7-enhanced",
     "runner-eclipselink-4",
     "runner-eclipselink-5",
     "runner-eclipselink-4-woven",

@@ -41,7 +41,7 @@ Then per database and dataset (and per database for `emfBootstrap` warm and cold
   factor, exact value as tooltip), linked to the distinct SQL of the first iteration per provider.
 
 Each runner has a fixed colour (`--series-N` CSS variables in `KNOWN_RUNNERS` order, light and dark variant);
-the `-agent` runners use the colour of their build-time runner, striped.
+variants (`-agent`, `-enhanced`, `-woven`) use the colour of their base runner, striped.
 
 Labels name the enhancement mode from `bench.provider.enhancement`, e.g. `EclipseLink 5.0.2 (not woven)`.
 

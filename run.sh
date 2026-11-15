@@ -33,7 +33,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-ALL_RUNNERS="runner-openjpa-4.1 runner-openjpa-4.2 runner-openjpa-4.1-agent runner-openjpa-4.2-agent runner-hibernate-6.6 runner-hibernate-7 runner-eclipselink-4 runner-eclipselink-5 runner-eclipselink-4-woven runner-eclipselink-5-woven"
+ALL_RUNNERS="runner-openjpa-4.1 runner-openjpa-4.2 runner-openjpa-4.1-agent runner-openjpa-4.2-agent runner-hibernate-6.6 runner-hibernate-7 runner-hibernate-6.6-enhanced runner-hibernate-7-enhanced runner-eclipselink-4 runner-eclipselink-5 runner-eclipselink-4-woven runner-eclipselink-5-woven"
 TAB=$(printf '\t')
 
 RUNNERS="$ALL_RUNNERS"

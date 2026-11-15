@@ -37,10 +37,12 @@ RUNNER_SLOTS: dict[str, tuple[int, bool]] = {
     "runner-openjpa-4.2-agent": (2, True),
     "runner-hibernate-6.6": (3, False),
     "runner-hibernate-7": (4, False),
+    "runner-hibernate-6.6-enhanced": (3, True),
+    "runner-hibernate-7-enhanced": (4, True),
     "runner-eclipselink-4": (5, False),
     "runner-eclipselink-5": (6, False),
-    "runner-eclipselink-4-woven": (7, False),
-    "runner-eclipselink-5-woven": (8, False),
+    "runner-eclipselink-4-woven": (5, True),
+    "runner-eclipselink-5-woven": (6, True),
 }
 assert set(RUNNER_SLOTS) == set(KNOWN_RUNNERS)
 

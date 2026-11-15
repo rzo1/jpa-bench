@@ -30,7 +30,7 @@
     <description>Benchmark runner for Hibernate ORM 6.6 (Jakarta Persistence 3.1).</description>
 
     <properties>
-        <hibernate.version>6.6.59.Final</hibernate.version>
+        <hibernate.version>${hibernate6.version}</hibernate.version>
         <!-- written into bench-provider.properties; the "enhance" profile switches it -->
         <bench.enhancement>none</bench.enhancement>
     </properties>
