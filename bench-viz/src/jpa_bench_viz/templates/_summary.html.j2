@@ -38,7 +38,7 @@
 <h2 id="providers">Providers</h2>
 <div class="scroll card">
 <table>
-  <thead><tr><th>Runner</th><th class="text">Provider</th><th class="text">Version</th><th class="text">Enhancement</th><th class="text">Snapshot build</th><th class="text">Revision</th></tr></thead>
+  <thead><tr><th>Runner</th><th class="text">Provider</th><th class="text">Version</th><th class="text">Enhancement</th><th class="text">Build</th><th class="text">Revision</th></tr></thead>
   <tbody>
   {% for p in run.providers %}
   <tr><td>{{ p.runner }}</td><td class="text">{{ p.name }}</td><td class="text">{{ p.version }}</td><td class="text">{{ p.enhancement }}</td><td class="text">{{ p.build }}</td><td class="text">{% if p.revision_url %}<a href="{{ p.revision_url }}"><code>{{ p.revision }}</code></a>{% else %}<code>{{ p.revision }}</code>{% endif %}</td></tr>

@@ -10,9 +10,9 @@ Results: **https://rzo1.github.io/jpa-bench/** (see [Results and contributing a 
 | Runner                       | Provider                                   | Enhancement (default build)            |
 |------------------------------|--------------------------------------------|----------------------------------------|
 | `runner-openjpa-4.1`         | Apache OpenJPA 4.1.1                       | build time (required)                  |
-| `runner-openjpa-4.2`         | Apache OpenJPA 4.2.0-SNAPSHOT (latest Apache snapshot; build and revision recorded) | build time (required) |
+| `runner-openjpa-4.2`         | Apache OpenJPA 4.2.0                       | build time (required)                  |
 | `runner-openjpa-4.1-agent`   | Apache OpenJPA 4.1.1                       | runtime: `-javaagent` at class load    |
-| `runner-openjpa-4.2-agent`   | Apache OpenJPA 4.2.0-SNAPSHOT              | runtime: `-javaagent` at class load    |
+| `runner-openjpa-4.2-agent`   | Apache OpenJPA 4.2.0                       | runtime: `-javaagent` at class load    |
 | `runner-hibernate-6.6`       | Hibernate ORM 6.6.59.Final                 | none                                   |
 | `runner-hibernate-7`         | Hibernate ORM 7.4.15.Final                 | none                                   |
 | `runner-hibernate-6.6-enhanced` | Hibernate ORM 6.6.59.Final              | build time (lazy init, dirty tracking) |
@@ -258,7 +258,7 @@ uv run jpa-bench-viz ../results/<timestamp>              # ../results/<timestamp
 
 Published runs live on the orphan branch `results` under `runs/<yyyy-mm-dd>-<machine>-<contributor>/`. Every
 push to it builds https://rzo1.github.io/jpa-bench/: an index of all runs, a page per run (machine, OS, JDK,
-database image, commit, provider versions and enhancement, OpenJPA snapshot build and revision, JMH settings,
+database image, commit, provider versions and enhancement, OpenJPA build and revision, JMH settings,
 verification) and the data model and dataset sizes. Smoke and reduced runs are listed separately as not
 comparable. Compare providers within a run, not runs from different machines.
 

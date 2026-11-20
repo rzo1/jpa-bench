@@ -28,13 +28,12 @@
     <!-- runner-openjpa-4.2 with the model enhanced at class load time by the OpenJPA javaagent -->
     <artifactId>runner-openjpa-4.2-agent</artifactId>
     <name>jpa-bench :: runner-openjpa-4.2-agent</name>
-    <description>Benchmark runner for Apache OpenJPA 4.2.0-SNAPSHOT (JPA 3.2), latest build of the Apache snapshot repository, model enhanced at class load time by the OpenJPA javaagent.</description>
+    <description>Benchmark runner for Apache OpenJPA 4.2.0 (JPA 3.2), model enhanced at class load time by the OpenJPA javaagent.</description>
 
     <properties>
-        <!-- latest snapshot; the resolved build is recorded by record-snapshot-build -->
-        <openjpa.version>4.2.0-SNAPSHOT</openjpa.version>
+        <openjpa.version>4.2.0</openjpa.version>
         <bench.enhancement>runtime (-javaagent, PCEnhancerAgent)</bench.enhancement>
-        <!-- set by record-snapshot-build -->
+        <!-- set by record-openjpa-build -->
         <openjpa.build>unknown</openjpa.build>
         <openjpa.revision>unknown</openjpa.revision>
 
@@ -42,33 +41,6 @@
         <groovy.version>4.0.31</groovy.version>
     </properties>
 
-    <!-- Snapshots are enabled for the Apache snapshot repository only, and only in this runner. -->
-    <repositories>
-        <repository>
-            <id>apache-snapshots</id>
-            <url>https://repository.apache.org/content/repositories/snapshots</url>
-            <releases>
-                <enabled>false</enabled>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>daily</updatePolicy>
-            </snapshots>
-        </repository>
-    </repositories>
-    <pluginRepositories>
-        <pluginRepository>
-            <id>apache-snapshots</id>
-            <url>https://repository.apache.org/content/repositories/snapshots</url>
-            <releases>
-                <enabled>false</enabled>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>daily</updatePolicy>
-            </snapshots>
-        </pluginRepository>
-    </pluginRepositories>
 
     <dependencies>
         <dependency>
@@ -106,7 +78,7 @@
             </resource>
         </resources>
         <plugins>
-            <!-- records the resolved snapshot build and the git revision of the OpenJPA jar -->
+            <!-- records the resolved OpenJPA build (the version, or the timestamped build of a snapshot) and the git revision of the jar -->
             <plugin>
                 <groupId>org.codehaus.gmavenplus</groupId>
                 <artifactId>gmavenplus-plugin</artifactId>
@@ -120,7 +92,7 @@
                 </dependencies>
                 <executions>
                     <execution>
-                        <id>record-snapshot-build</id>
+                        <id>record-openjpa-build</id>
                         <phase>generate-resources</phase>
                         <goals>
                             <goal>execute</goal>

@@ -23,7 +23,7 @@ settings; run.sh stores them in `metadata.json`.
 
 ## Provider equivalents
 
-| Concern | Hibernate ORM 7.4.15.Final | Hibernate ORM 6.6.59.Final | OpenJPA 4.1.1 / 4.2.0-SNAPSHOT | EclipseLink 4.0.10 / 5.0.2 |
+| Concern | Hibernate ORM 7.4.15.Final | Hibernate ORM 6.6.59.Final | OpenJPA 4.1.1 / 4.2.0 | EclipseLink 4.0.10 / 5.0.2 |
 |---|---|---|---|---|
 | provider class | `org.hibernate.jpa.HibernatePersistenceProvider` | `org.hibernate.jpa.HibernatePersistenceProvider` | `org.apache.openjpa.persistence.PersistenceProviderImpl` | `org.eclipse.persistence.jpa.PersistenceProvider` |
 | DataSource object | `jakarta.persistence.nonJtaDataSource` | `jakarta.persistence.nonJtaDataSource` | `openjpa.ConnectionFactory` (`nonJtaDataSource` is a JNDI name for OpenJPA; `ConnectionFactory2` unset, falls back to the same pool) | `jakarta.persistence.nonJtaDataSource` (used as an external pool) |
@@ -39,7 +39,7 @@ settings; run.sh stores them in `metadata.json`.
 | auto-commit already off | `hibernate.connection.provider_disables_autocommit=true` | `hibernate.connection.provider_disables_autocommit=true` | n/a | n/a |
 | no statistics / SQL logging | `hibernate.generate_statistics=false`, `show_sql=false`, `format_sql=false`, `use_sql_comments=false` | same as 7 | `openjpa.Log=DefaultLevel=WARN, ... SQL=WARN`, `openjpa.ConnectionFactoryProperties=PrintParameters=false` | `eclipselink.logging.level=WARNING`, `eclipselink.logging.level.sql=OFF`, `eclipselink.logging.parameters=false` |
 | bytecode enhancement | `runner-hibernate-7`: none; `runner-hibernate-7-enhanced` (same settings file): build time (`hibernate-maven-plugin`), lazy initialization + dirty tracking | `runner-hibernate-6.6`: none; `runner-hibernate-6.6-enhanced` (same settings file): build time (`hibernate-enhance-maven-plugin`), lazy initialization + dirty tracking | `runner-openjpa-N`: build time (`openjpa-maven-plugin`); `runner-openjpa-N-agent` (same settings file): at class load time by `-javaagent:openjpa.jar` (`PCEnhancerAgent`); both `openjpa.RuntimeUnenhancedClasses=unsupported`, `openjpa.DynamicEnhancementAgent=false` | `runner-eclipselink-N`: `eclipselink.weaving=false` (to-one `LAZY` is then loaded eagerly, `getReference` selects); `runner-eclipselink-N-woven` (same settings file) and `-Pweave`: static weaving at build time, `eclipselink.weaving=static` |
-| exact provider build in `metadata.json` | release version | release version | 4.1: release version; 4.2 (latest Apache snapshot): `bench.provider.build` = the resolved `4.2.0-<timestamp>-<buildNumber>` and `bench.provider.revision` = git revision from the jar, recorded at build time | release version |
+| exact provider build in `metadata.json` | release version | release version | release version; 4.2 also records `bench.provider.revision` = git revision from the jar at build time (and in `bench.provider.build` the resolved `<version>-<timestamp>-<buildNumber>` when the runner is pointed at a snapshot) | release version |
 | EMF deploys eagerly | default | default | — | `eclipselink.deploy-on-startup=true` (otherwise the session logs in on the first `createEntityManager`) |
 | one DB transaction per `EntityTransaction` | default | default | — | `eclipselink.transaction.join-existing=true` (otherwise reads before the first write run on separately acquired connections) |
 
